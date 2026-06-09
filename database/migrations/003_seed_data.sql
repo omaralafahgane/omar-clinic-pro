@@ -1,7 +1,8 @@
--- Omar Clinic Pro - Seed Data
+-- Omar Clinic Pro - Seed Data (CORRECTED)
 -- Migration: 003_seed_data.sql
 -- Description: Insert initial roles and sample data for development
 -- Created: 2026-06-09
+-- Status: CORRECTED - Removed subscription columns from clinic, added subscription record
 
 -- ============================================================================
 -- SEED ROLES
@@ -15,11 +16,10 @@ INSERT INTO roles (name, description, permissions) VALUES
 ON CONFLICT (name) DO NOTHING;
 
 -- ============================================================================
--- SEED SAMPLE CLINIC
+-- SEED SAMPLE CLINIC (CORRECTED - NO subscription columns)
 -- ============================================================================
 INSERT INTO clinics (
-  name, email, phone, address, city, state, postal_code, country,
-  subscription_plan, subscription_status, trial_ends_at
+  name, email, phone, address, city, state, postal_code, country
 ) VALUES (
   'Omar Clinic Pro - Demo',
   'demo@omarclinicp.com',
@@ -28,14 +28,40 @@ INSERT INTO clinics (
   'Riyadh',
   'Riyadh Region',
   '11111',
-  'Saudi Arabia',
-  'advanced',
-  'trial',
-  CURRENT_TIMESTAMP + INTERVAL '14 days'
+  'Saudi Arabia'
 ) ON CONFLICT (email) DO NOTHING;
 
--- Get the clinic ID for subsequent inserts
--- Note: In production, use actual clinic IDs
+-- ============================================================================
+-- SEED SAMPLE SUBSCRIPTION (NEW - linked to demo clinic)
+-- ============================================================================
+INSERT INTO subscriptions (
+  clinic_id,
+  plan,
+  status,
+  start_date,
+  end_date,
+  renewal_date,
+  auto_renew,
+  price,
+  currency,
+  billing_cycle,
+  next_billing_date
+)
+SELECT
+  c.id,
+  'advanced',
+  'trial',
+  CURRENT_TIMESTAMP,
+  CURRENT_TIMESTAMP + INTERVAL '14 days',
+  CURRENT_TIMESTAMP + INTERVAL '14 days',
+  true,
+  0.00,
+  'SAR',
+  'monthly',
+  CURRENT_TIMESTAMP + INTERVAL '14 days'
+FROM clinics c
+WHERE c.email = 'demo@omarclinicp.com'
+ON CONFLICT DO NOTHING;
 
 -- ============================================================================
 -- SEED SAMPLE USERS
@@ -79,5 +105,7 @@ INSERT INTO clinics (
 -- ============================================================================
 -- Roles seeded: 5
 -- Sample clinic created: 1
+-- Sample subscription created: 1 (linked to demo clinic)
 -- Ready for production data import
 -- Note: User creation should be handled through Clerk in Step 4
+-- Note: Subscription data now stored in subscriptions table (not clinics)
