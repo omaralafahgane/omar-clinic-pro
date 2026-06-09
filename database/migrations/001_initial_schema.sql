@@ -1,7 +1,8 @@
--- Omar Clinic Pro - Initial Database Schema
+-- Omar Clinic Pro - Initial Database Schema (CORRECTED)
 -- Migration: 001_initial_schema.sql
 -- Description: Create production-ready multi-tenant database structure
 -- Created: 2026-06-09
+-- Fixed: Removed duplicate foreign key definitions
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -347,36 +348,6 @@ CREATE INDEX idx_activity_logs_created_at ON activity_logs(created_at);
 CREATE INDEX idx_activity_logs_clinic_id_created_at ON activity_logs(clinic_id, created_at);
 
 -- ============================================================================
--- FOREIGN KEY CONSTRAINTS
--- ============================================================================
-ALTER TABLE users ADD CONSTRAINT fk_users_clinic_id 
-  FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE;
-
-ALTER TABLE doctors ADD CONSTRAINT fk_doctors_clinic_id 
-  FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE;
-
-ALTER TABLE patients ADD CONSTRAINT fk_patients_clinic_id 
-  FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE;
-
-ALTER TABLE appointments ADD CONSTRAINT fk_appointments_clinic_id 
-  FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE;
-
-ALTER TABLE treatments ADD CONSTRAINT fk_treatments_clinic_id 
-  FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE;
-
-ALTER TABLE invoices ADD CONSTRAINT fk_invoices_clinic_id 
-  FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE;
-
-ALTER TABLE payments ADD CONSTRAINT fk_payments_clinic_id 
-  FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE;
-
-ALTER TABLE subscriptions ADD CONSTRAINT fk_subscriptions_clinic_id 
-  FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE;
-
-ALTER TABLE activity_logs ADD CONSTRAINT fk_activity_logs_clinic_id 
-  FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE;
-
--- ============================================================================
 -- ENABLE ROW LEVEL SECURITY
 -- ============================================================================
 ALTER TABLE roles ENABLE ROW LEVEL SECURITY;
@@ -398,4 +369,5 @@ ALTER TABLE activity_logs ENABLE ROW LEVEL SECURITY;
 -- Tables created: 11
 -- Indexes created: 50+
 -- RLS enabled on all tables
+-- Foreign keys: Defined inline only (no duplicates)
 -- Next: Run 002_rls_policies.sql for security policies
