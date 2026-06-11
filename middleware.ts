@@ -22,22 +22,19 @@ const PUBLIC_ROUTES = [
 // CLERK MIDDLEWARE CONFIGURATION
 // ============================================================================
 
-export default authMiddleware(async (auth, req) => {
-  const { userId, sessionClaims } = auth();
-  const pathname = req.nextUrl.pathname;
+export default authMiddleware({
+  publicRoutes: PUBLIC_ROUTES,
+  afterAuth(auth, req) {
+    const { userId, sessionClaims } = auth;
+    const pathname = req.nextUrl.pathname;
 
-  // 1. Allow public routes
-  if (PUBLIC_ROUTES.some((route) => pathname === route)) {
-    return NextResponse.next();
-  }
-
-  // 2. Check if user is authenticated
-  if (!userId) {
-    if (pathname.startsWith("/dashboard")) {
-      return NextResponse.redirect(new URL("/login", req.url));
+    // 2. Check if user is authenticated
+    if (!userId && !PUBLIC_ROUTES.includes(pathname)) {
+      if (pathname.startsWith("/dashboard")) {
+        return NextResponse.redirect(new URL("/login", req.url));
+      }
+      return NextResponse.next();
     }
-    return NextResponse.next();
-  }
 
   // 3. Get user metadata
   const userRole = (sessionClaims?.metadata as any)?.role || "patient";
@@ -73,8 +70,7 @@ export default authMiddleware(async (auth, req) => {
 
     return NextResponse.next();
   }
-
-  return NextResponse.next();
+}
 });
 
 export const config = {

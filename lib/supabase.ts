@@ -2,7 +2,6 @@
 // Production-ready Supabase integration for Omar Clinic Pro
 
 import { createClient } from "@supabase/supabase-js";
-import { Database } from "@/types/database";
 
 // Initialize Supabase client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,7 +11,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing Supabase environment variables");
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ============================================================================
 // USERS OPERATIONS

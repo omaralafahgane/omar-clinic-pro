@@ -24,7 +24,7 @@ if (!webhookSecret) {
 export async function POST(req: Request) {
   try {
     // Get headers
-    const headerPayload = headers();
+    const headerPayload = await headers();
     const svix_id = headerPayload.get("svix-id");
     const svix_timestamp = headerPayload.get("svix-timestamp");
     const svix_signature = headerPayload.get("svix-signature");
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
 
     // Get request body
     const body = await req.text();
-    const wh = new Webhook(webhookSecret);
+    const wh = new Webhook(webhookSecret as string);
 
     let evt;
     try {
@@ -152,7 +152,6 @@ export async function POST(req: Request) {
       try {
         // Update user in Supabase
         const result = await usersDb.update(id, {
-          email,
           first_name: first_name || "User",
           last_name: last_name || "",
           phone,
