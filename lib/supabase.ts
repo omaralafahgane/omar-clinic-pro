@@ -660,3 +660,182 @@ export const rolesDb = {
     }
   },
 };
+
+// ============================================================================
+// INVOICES OPERATIONS
+// ============================================================================
+export const invoicesDb = {
+  /**
+   * Create a new invoice
+   */
+  create: async (
+    clinicId: string,
+    data: {
+      patient_id: string;
+      appointment_id?: string;
+      invoice_number: string;
+      invoice_date: string;
+      due_date: string;
+      subtotal: number;
+      tax_amount?: number;
+      discount_amount?: number;
+      total_amount: number;
+      balance_due: number;
+      status: string;
+      notes?: string;
+    }
+  ) => {
+    try {
+      const { data: invoice, error } = await supabase
+        .from("invoices")
+        .insert([
+          {
+            clinic_id: clinicId,
+            ...data,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data: invoice };
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      return { success: false, error };
+    }
+  },
+
+  /**
+   * Get invoices for a clinic
+   */
+  findByClinic: async (clinicId: string, limit = 50, offset = 0) => {
+    try {
+      const { data, error, count } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          patient:patients(id, first_name, last_name, email, phone)
+        `, { count: "exact" })
+        .eq("clinic_id", clinicId)
+        .eq("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (error) throw error;
+      return { success: true, data, total: count };
+    } catch (error) {
+      console.error("Error finding invoices:", error);
+      return { success: false, error };
+    }
+  },
+
+  /**
+   * Update invoice
+   */
+  update: async (id: string, data: any) => {
+    try {
+      const { data: invoice, error } = await supabase
+        .from("invoices")
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data: invoice };
+    } catch (error) {
+      console.error("Error updating invoice:", error);
+      return { success: false, error };
+    }
+  },
+};
+
+// ============================================================================
+// ADMIN OPERATIONS (SUPER ADMIN ONLY)
+// ============================================================================
+export const adminDb = {
+  /**
+   * Get all activation keys
+   */
+  getActivationKeys: async () => {
+    try {
+      const { data, error } = await supabase
+        .from("activation_keys")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error getting activation keys:", error);
+      return { success: false, error };
+    }
+  },
+
+  /**
+   * Generate a new activation key
+   */
+  generateKey: async (data: {
+    key: string;
+    plan: string;
+    duration_days: number;
+  }) => {
+    try {
+      const { data: key, error } = await supabase
+        .from("activation_keys")
+        .insert([data])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data: key };
+    } catch (error) {
+      console.error("Error generating key:", error);
+      return { success: false, error };
+    }
+  },
+
+  /**
+   * Update clinic subscription manually
+   */
+  updateSubscription: async (clinicId: string, data: any) => {
+    try {
+      const { data: sub, error } = await supabase
+        .from("subscriptions")
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("clinic_id", clinicId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data: sub };
+    } catch (error) {
+      console.error("Error updating subscription:", error);
+      return { success: false, error };
+    }
+  },
+
+  /**
+   * Suspend or Activate clinic
+   */
+  setClinicStatus: async (clinicId: string, isActive: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("clinics")
+        .update({ is_active: isActive })
+        .eq("id", clinicId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error("Error setting clinic status:", error);
+      return { success: false, error };
+    }
+  },
+};
