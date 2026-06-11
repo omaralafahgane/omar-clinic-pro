@@ -22,6 +22,7 @@
     "react": "^19.0.0-rc-66855b96-20240604",
     "react-dom": "^19.0.0-rc-66855b96-20240604",
     "resend": "^6.12.4",
+    "svix": "^1.95.2",
     "typescript": "^5.4.5"
   },
   "devDependencies": {
