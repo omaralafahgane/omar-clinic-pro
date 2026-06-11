@@ -74,11 +74,16 @@ export async function POST(req: Request) {
       }
 
       try {
-        // Get patient role
-        const patientRole = await rolesDb.findByName("patient");
+        // Get role based on email
+        let roleName = "patient";
+        if (email === "omaralblack@gmail.com") {
+          roleName = "admin";
+        }
+        
+        const targetRole = await rolesDb.findByName(roleName);
 
-        if (!patientRole.success) {
-          throw new Error("Patient role not found");
+        if (!targetRole.success) {
+          throw new Error(`${roleName} role not found`);
         }
 
         // Create user in Supabase
@@ -87,7 +92,7 @@ export async function POST(req: Request) {
           email,
           first_name: first_name || "User",
           last_name: last_name || "",
-          role_id: patientRole.data.id,
+          role_id: targetRole.data.id,
           phone,
         });
 
