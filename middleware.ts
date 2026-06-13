@@ -128,7 +128,6 @@ export default authMiddleware({
     // ========================================================================
     return NextResponse.next();
   }
-})
 });
 
 export const config = {
