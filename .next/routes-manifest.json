@@ -1,0 +1,167 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/contact",
+      "regex": "^/contact(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/contact(?:/)?$"
+    },
+    {
+      "page": "/dashboard/admin",
+      "regex": "^/dashboard/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/admin(?:/)?$"
+    },
+    {
+      "page": "/dashboard/admin/clinics",
+      "regex": "^/dashboard/admin/clinics(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/admin/clinics(?:/)?$"
+    },
+    {
+      "page": "/dashboard/admin/reports",
+      "regex": "^/dashboard/admin/reports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/admin/reports(?:/)?$"
+    },
+    {
+      "page": "/dashboard/admin/settings",
+      "regex": "^/dashboard/admin/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/admin/settings(?:/)?$"
+    },
+    {
+      "page": "/dashboard/admin/subscriptions",
+      "regex": "^/dashboard/admin/subscriptions(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/admin/subscriptions(?:/)?$"
+    },
+    {
+      "page": "/dashboard/admin/users",
+      "regex": "^/dashboard/admin/users(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/admin/users(?:/)?$"
+    },
+    {
+      "page": "/dashboard/clinic",
+      "regex": "^/dashboard/clinic(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/clinic(?:/)?$"
+    },
+    {
+      "page": "/dashboard/clinic/appointments",
+      "regex": "^/dashboard/clinic/appointments(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/clinic/appointments(?:/)?$"
+    },
+    {
+      "page": "/dashboard/clinic/invoices",
+      "regex": "^/dashboard/clinic/invoices(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/clinic/invoices(?:/)?$"
+    },
+    {
+      "page": "/dashboard/clinic/patients",
+      "regex": "^/dashboard/clinic/patients(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/clinic/patients(?:/)?$"
+    },
+    {
+      "page": "/dashboard/clinic/reports",
+      "regex": "^/dashboard/clinic/reports(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/clinic/reports(?:/)?$"
+    },
+    {
+      "page": "/dashboard/clinic/settings",
+      "regex": "^/dashboard/clinic/settings(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/clinic/settings(?:/)?$"
+    },
+    {
+      "page": "/dashboard/clinic/subscription",
+      "regex": "^/dashboard/clinic/subscription(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/dashboard/clinic/subscription(?:/)?$"
+    },
+    {
+      "page": "/features",
+      "regex": "^/features(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/features(?:/)?$"
+    },
+    {
+      "page": "/free-trial",
+      "regex": "^/free\\-trial(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/free\\-trial(?:/)?$"
+    },
+    {
+      "page": "/login",
+      "regex": "^/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/login(?:/)?$"
+    },
+    {
+      "page": "/pricing",
+      "regex": "^/pricing(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/pricing(?:/)?$"
+    },
+    {
+      "page": "/subscription-expired",
+      "regex": "^/subscription\\-expired(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/subscription\\-expired(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments"
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}
