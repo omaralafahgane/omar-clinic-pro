@@ -22,7 +22,6 @@ if (!SHOPIFY_WEBHOOK_SECRET) {
  * Shopify signs each webhook with HMAC-SHA256
  */
 function verifyShopifyWebhook(
-  _request: Request,
   body: string,
   hmacHeader: string
 ): boolean {
@@ -58,7 +57,7 @@ export async function POST(req: Request) {
     const hmacHeader = req.headers.get("x-shopify-hmac-sha256") || "";
 
     // Verify webhook signature
-    if (!verifyShopifyWebhook(req, body, hmacHeader)) {
+    if (!verifyShopifyWebhook(body, hmacHeader)) {
       console.error("Shopify webhook verification failed");
       return NextResponse.json(
         { error: "Webhook verification failed" },
@@ -115,7 +114,7 @@ async function handleOrderPaid(event: any) {
   try {
     const order = event.data?.object || event;
     const orderId = order.id || order.order_id;
-    const _customerId = order.customer?.id || order.customer_id;
+    // const customerId = order.customer?.id || order.customer_id;
     const lineItems = order.line_items || [];
 
     console.log(`Processing paid order: ${orderId}`);
