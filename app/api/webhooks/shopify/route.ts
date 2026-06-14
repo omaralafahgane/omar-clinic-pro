@@ -22,7 +22,7 @@ if (!SHOPIFY_WEBHOOK_SECRET) {
  * Shopify signs each webhook with HMAC-SHA256
  */
 function verifyShopifyWebhook(
-  request: Request,
+  _request: Request,
   body: string,
   hmacHeader: string
 ): boolean {
