@@ -13,7 +13,7 @@ import { usersDb, activityLogsDb, rolesDb } from "@/lib/supabase";
 
 const webhookSecret = process.env.CLERK_WEBHOOK_SECRET;
 
-if (!webhookSecret) {
+if (!webhookSecret && process.env.NODE_ENV !== "production") {
   throw new Error("CLERK_WEBHOOK_SECRET is not set");
 }
 
