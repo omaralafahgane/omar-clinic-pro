@@ -632,13 +632,35 @@ export const invoicesDb = {
   /**
    * Create a new invoice
    */
-  create: async (clinicId: string, data: any) => {
+  create: async (
+    clinicId: string,
+    data: {
+      patient_id: string;
+      appointment_id?: string;
+      invoice_number: string;
+      invoice_date: string;
+      due_date: string;
+      subtotal: number;
+      tax_amount?: number;
+      discount_amount?: number;
+      total_amount: number;
+      balance_due: number;
+      status: string;
+      notes?: string;
+    }
+  ) => {
     try {
       const { data: invoice, error } = await supabase
         .from("invoices")
-        .insert([{ clinic_id: clinicId, ...data }])
+        .insert([
+          {
+            clinic_id: clinicId,
+            ...data,
+          },
+        ])
         .select()
         .single();
+
       if (error) throw error;
       return { success: true, data: invoice };
     } catch (error) {
@@ -648,29 +670,49 @@ export const invoicesDb = {
   },
 
   /**
-   * Get all invoices for a clinic
+   * Get invoices for a clinic
    */
-  findByClinic: async (clinicId: string, filters?: any) => {
+  findByClinic: async (clinicId: string, limit = 50, offset = 0) => {
     try {
-      let query = supabase
+      const { data, error, count } = await supabase
         .from("invoices")
         .select(`
           *,
-          patient:patients(id, first_name, last_name, phone),
+          patient:patients(id, first_name, last_name, email, phone),
           appointment:appointments(id, appointment_number, start_time)
-        `)
+        `, { count: "exact" })
         .eq("clinic_id", clinicId)
-        .eq("deleted_at", null);
+        .eq("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
 
-      if (filters?.status) {
-        query = query.eq("status", filters.status);
-      }
-
-      const { data, error } = await query.order("created_at", { ascending: false });
       if (error) throw error;
-      return { success: true, data };
+      return { success: true, data, total: count };
     } catch (error) {
       console.error("Error finding invoices:", error);
+      return { success: false, error };
+    }
+  },
+
+  /**
+   * Update invoice
+   */
+  update: async (id: string, data: any) => {
+    try {
+      const { data: invoice, error } = await supabase
+        .from("invoices")
+        .update({
+          ...data,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data: invoice };
+    } catch (error) {
+      console.error("Error updating invoice:", error);
       return { success: false, error };
     }
   },
@@ -832,98 +874,6 @@ export const rolesDb = {
       return { success: true, data };
     } catch (error) {
       console.error("Error finding role:", error);
-      return { success: false, error };
-    }
-  },
-};
-
-// ============================================================================
-// INVOICES OPERATIONS
-// ============================================================================
-export const invoicesDb = {
-  /**
-   * Create a new invoice
-   */
-  create: async (
-    clinicId: string,
-    data: {
-      patient_id: string;
-      appointment_id?: string;
-      invoice_number: string;
-      invoice_date: string;
-      due_date: string;
-      subtotal: number;
-      tax_amount?: number;
-      discount_amount?: number;
-      total_amount: number;
-      balance_due: number;
-      status: string;
-      notes?: string;
-    }
-  ) => {
-    try {
-      const { data: invoice, error } = await supabase
-        .from("invoices")
-        .insert([
-          {
-            clinic_id: clinicId,
-            ...data,
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-      return { success: true, data: invoice };
-    } catch (error) {
-      console.error("Error creating invoice:", error);
-      return { success: false, error };
-    }
-  },
-
-  /**
-   * Get invoices for a clinic
-   */
-  findByClinic: async (clinicId: string, limit = 50, offset = 0) => {
-    try {
-      const { data, error, count } = await supabase
-        .from("invoices")
-        .select(`
-          *,
-          patient:patients(id, first_name, last_name, email, phone)
-        `, { count: "exact" })
-        .eq("clinic_id", clinicId)
-        .eq("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
-
-      if (error) throw error;
-      return { success: true, data, total: count };
-    } catch (error) {
-      console.error("Error finding invoices:", error);
-      return { success: false, error };
-    }
-  },
-
-  /**
-   * Update invoice
-   */
-  update: async (id: string, data: any) => {
-    try {
-      const { data: invoice, error } = await supabase
-        .from("invoices")
-        .update({
-          ...data,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return { success: true, data: invoice };
-    } catch (error) {
-      console.error("Error updating invoice:", error);
       return { success: false, error };
     }
   },
