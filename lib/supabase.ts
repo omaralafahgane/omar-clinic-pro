@@ -3,7 +3,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-// Initialize Supabase client
+// Initialize Supabase client (Anon key - for client-side operations)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || (process.env.NODE_ENV === "production" ? "https://placeholder.supabase.co" : undefined);
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || (process.env.NODE_ENV === "production" ? "placeholder" : undefined);
 
@@ -12,6 +12,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// ============================================================================
+// SERVICE ROLE CLIENT - For server-side operations (webhooks, etc.)
+// Bypasses RLS policies for system operations
+// ============================================================================
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseServiceRoleKey && process.env.NODE_ENV === "production") {
+  console.warn("SUPABASE_SERVICE_ROLE_KEY not set - webhook operations may fail");
+}
+
+export const supabaseAdmin = supabaseServiceRoleKey
+  ? createClient(supabaseUrl, supabaseServiceRoleKey)
+  : supabase; // Fallback to anon client if service role key is not available
 
 // ============================================================================
 // USERS OPERATIONS
@@ -228,7 +242,7 @@ export const clinicsDb = {
     owner_id: string;
   }) => {
     try {
-      const { data: clinic, error } = await supabase
+      const { data: clinic, error } = await supabaseAdmin
         .from("clinics")
         .insert([
           {
@@ -238,9 +252,7 @@ export const clinicsDb = {
             address: data.address,
             city: data.city,
             country: data.country,
-            subscription_plan: "basic",
-            subscription_status: "trial",
-            trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+            is_active: true,
           },
         ])
         .select()
@@ -329,6 +341,49 @@ export const clinicsDb = {
       return { success: true, data, total: count };
     } catch (error) {
       console.error("Error getting all clinics:", error);
+      return { success: false, error };
+    }
+  },
+};
+
+// ============================================================================
+// DOCTORS OPERATIONS
+// ============================================================================
+export const doctorsDb = {
+  /**
+   * Create a new doctor
+   */
+  create: async (clinicId: string, data: any) => {
+    try {
+      const { data: doctor, error } = await supabase
+        .from("doctors")
+        .insert([{ clinic_id: clinicId, ...data }])
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data: doctor };
+    } catch (error) {
+      console.error("Error creating doctor:", error);
+      return { success: false, error };
+    }
+  },
+
+  /**
+   * Get all doctors in a clinic
+   */
+  findByClinic: async (clinicId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("doctors")
+        .select("*")
+        .eq("clinic_id", clinicId)
+        .eq("deleted_at", null)
+        .eq("is_active", true)
+        .order("first_name", { ascending: true });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error finding clinic doctors:", error);
       return { success: false, error };
     }
   },
@@ -521,6 +576,32 @@ export const appointmentsDb = {
   },
 
   /**
+   * Check for appointment conflicts
+   */
+  checkConflict: async (doctorId: string, startTime: string, endTime: string, excludeId?: string) => {
+    try {
+      let query = supabase
+        .from("appointments")
+        .select("id")
+        .eq("doctor_id", doctorId)
+        .eq("deleted_at", null)
+        .neq("status", "cancelled")
+        .or(`start_time.lt.${endTime},end_time.gt.${startTime}`);
+
+      if (excludeId) {
+        query = query.neq("id", excludeId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      return { success: true, hasConflict: data.length > 0 };
+    } catch (error) {
+      console.error("Error checking conflict:", error);
+      return { success: false, error };
+    }
+  },
+
+  /**
    * Update appointment
    */
   update: async (id: string, data: any) => {
@@ -539,6 +620,76 @@ export const appointmentsDb = {
       return { success: true, data: appointment };
     } catch (error) {
       console.error("Error updating appointment:", error);
+      return { success: false, error };
+    }
+  },
+};
+
+// ============================================================================
+// INVOICES OPERATIONS
+// ============================================================================
+export const invoicesDb = {
+  /**
+   * Create a new invoice
+   */
+  create: async (clinicId: string, data: any) => {
+    try {
+      const { data: invoice, error } = await supabase
+        .from("invoices")
+        .insert([{ clinic_id: clinicId, ...data }])
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data: invoice };
+    } catch (error) {
+      console.error("Error creating invoice:", error);
+      return { success: false, error };
+    }
+  },
+
+  /**
+   * Get all invoices for a clinic
+   */
+  findByClinic: async (clinicId: string, filters?: any) => {
+    try {
+      let query = supabase
+        .from("invoices")
+        .select(`
+          *,
+          patient:patients(id, first_name, last_name, phone),
+          appointment:appointments(id, appointment_number, start_time)
+        `)
+        .eq("clinic_id", clinicId)
+        .eq("deleted_at", null);
+
+      if (filters?.status) {
+        query = query.eq("status", filters.status);
+      }
+
+      const { data, error } = await query.order("created_at", { ascending: false });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error finding invoices:", error);
+      return { success: false, error };
+    }
+  },
+
+  /**
+   * Update invoice status
+   */
+  updateStatus: async (id: string, status: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("invoices")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error updating invoice status:", error);
       return { success: false, error };
     }
   },
@@ -611,6 +762,32 @@ export const activityLogsDb = {
       return { success: true, data, total: count };
     } catch (error) {
       console.error("Error getting activity logs:", error);
+      return { success: false, error };
+    }
+  },
+};
+
+// ============================================================================
+// CLINICS OPERATIONS - HELPER FUNCTIONS
+// ============================================================================
+export const clinicsDbHelpers = {
+  /**
+   * Get default clinic for new users (Demo clinic)
+   * Used by Clerk webhook to assign clinic_id to new users
+   */
+  getDefaultClinic: async () => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("clinics")
+        .select("*")
+        .eq("email", "demo@omarclinicp.com")
+        .eq("deleted_at", null)
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error getting default clinic:", error);
       return { success: false, error };
     }
   },

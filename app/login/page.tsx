@@ -1,112 +1,49 @@
 "use client";
 
+import { SignIn } from "@clerk/nextjs";
 import Link from "next/link";
-import { useState } from "react";
 
+/**
+ * LoginPage - Updated to ensure complete removal of old manual login logic
+ * This page now exclusively uses Clerk for authentication.
+ */
 export default function LoginPage() {
-  const [formData, setFormData] = useState({
-    email: "",
-    password: "",
-    rememberMe: false,
-  });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Login:", formData);
-    alert("سيتم إعادة توجيهك إلى لوحة التحكم");
-  };
-
   return (
-    <main className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
-      {/* Form Container */}
-      <div className="max-w-md w-full px-4">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          {/* Logo */}
-          <div className="flex justify-center mb-8">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">OCP</span>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6" dir="rtl">
+      {/* Home Link */}
+      <Link href="/" className="mb-8 text-blue-600 hover:text-blue-800 font-bold flex items-center gap-2">
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        العودة للرئيسية
+      </Link>
 
-          <h1 className="text-3xl font-bold text-gray-900 mb-2 text-center">
-            تسجيل الدخول
-          </h1>
-          <p className="text-gray-600 text-center mb-8">
-            ادخل إلى لوحة تحكم عيادتك
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2">
-                البريد الإلكتروني
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                placeholder="أدخل بريدك الإلكتروني"
-              />
-            </div>
-
-            <div>
-              <label className="block text-gray-700 font-semibold mb-2">
-                كلمة المرور
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                placeholder="أدخل كلمة المرور"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="rememberMe"
-                  checked={formData.rememberMe}
-                  onChange={handleChange}
-                  className="w-4 h-4 border border-gray-300 rounded"
-                />
-                <span className="text-gray-700">تذكرني</span>
-              </label>
-              <Link href="#" className="text-blue-500 hover:text-blue-600 text-sm">
-                هل نسيت كلمة المرور؟
-              </Link>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-blue-500 text-white py-3 rounded-lg hover:bg-blue-600 font-semibold"
-            >
-              تسجيل الدخول
-            </button>
-          </form>
-
-          {/* Signup Link */}
-          <p className="text-center text-gray-600 mt-6">
-            ليس لديك حساب؟{" "}
-            <Link href="/free-trial" className="text-blue-500 hover:text-blue-600 font-semibold">
-              ابدأ تجربة مجانية
-            </Link>
-          </p>
+      <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+        <div className="p-8 text-center bg-blue-600">
+          <h1 className="text-2xl font-black text-white">Omar Clinic Pro</h1>
+          <p className="text-blue-100 text-sm mt-1">تسجيل الدخول للنظام</p>
+        </div>
+        
+        <div className="p-4 flex justify-center">
+          <SignIn 
+            routing="hash"
+            signUpUrl="/free-trial"
+            afterSignInUrl="/dashboard/clinic"
+            appearance={{
+              elements: {
+                rootBox: "w-full",
+                card: "shadow-none border-none w-full",
+                header: "hidden",
+                footer: "bg-transparent",
+              }
+            }}
+          />
         </div>
       </div>
-    </main>
+      
+      <p className="mt-8 text-gray-400 text-xs">
+        &copy; 2026 Omar Clinic Pro - جميع الحقوق محفوظة
+      </p>
+    </div>
   );
 }

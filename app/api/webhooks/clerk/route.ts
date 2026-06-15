@@ -5,7 +5,8 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
-import { usersDb, activityLogsDb, rolesDb } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
+import { rolesDb, clinicsDbHelpers, activityLogsDb } from "@/lib/supabase";
 
 // ============================================================================
 // WEBHOOK VERIFICATION
@@ -74,35 +75,54 @@ export async function POST(req: Request) {
       }
 
       try {
-        // Get role based on email
+        // Determine role based on email
         let roleName = "patient";
         if (email === "omaralblack@gmail.com") {
           roleName = "admin";
         }
-        
-        const targetRole = await rolesDb.findByName(roleName);
 
-        if (!targetRole.success) {
+        // Get role from database
+        const roleResult = await rolesDb.findByName(roleName);
+
+        if (!roleResult.success) {
           throw new Error(`${roleName} role not found`);
         }
 
-        // Create user in Supabase
-        const result = await usersDb.create({
-          id,
-          email,
-          first_name: first_name || "User",
-          last_name: last_name || "",
-          role_id: targetRole.data.id,
-          phone,
-        });
+        // Get default clinic for new users
+        const clinicResult = await clinicsDbHelpers.getDefaultClinic();
+        let clinicId = null;
 
-        if (!result.success) {
-          throw result.error;
+        if (clinicResult.success && clinicResult.data) {
+          clinicId = clinicResult.data.id;
+        } else {
+          console.warn("Default clinic not found, creating user without clinic_id");
+        }
+
+        // Create user in Supabase using service role client (bypasses RLS)
+        const { data: user, error } = await supabaseAdmin
+          .from("users")
+          .insert([
+            {
+              id,
+              email,
+              first_name: first_name || "User",
+              last_name: last_name || "",
+              role_id: roleResult.data.id,
+              clinic_id: clinicId,
+              phone,
+              is_active: true,
+            },
+          ])
+          .select()
+          .single();
+
+        if (error) {
+          throw error;
         }
 
         // Log user creation
         await activityLogsDb.log({
-          clinic_id: "system", // System-level event
+          clinic_id: clinicId || "system",
           user_id: id,
           entity_type: "users",
           entity_id: id,
@@ -111,15 +131,16 @@ export async function POST(req: Request) {
             email,
             first_name,
             last_name,
-            role: "patient",
+            role: roleName,
+            clinic_id: clinicId,
           },
           status: "success",
         });
 
-        console.log(`User created: ${email}`);
+        console.log(`✅ User created: ${email} (role: ${roleName}, clinic: ${clinicId})`);
         return NextResponse.json({ success: true }, { status: 200 });
       } catch (error) {
-        console.error("Error creating user:", error);
+        console.error("❌ Error creating user:", error);
 
         // Log failed creation
         await activityLogsDb.log({
@@ -133,7 +154,7 @@ export async function POST(req: Request) {
         });
 
         return NextResponse.json(
-          { error: "Failed to create user" },
+          { error: "Failed to create user", details: String(error) },
           { status: 500 }
         );
       }
@@ -150,20 +171,26 @@ export async function POST(req: Request) {
       const phone = phone_numbers[0]?.phone_number;
 
       try {
-        // Update user in Supabase
-        const result = await usersDb.update(id, {
-          first_name: first_name || "User",
-          last_name: last_name || "",
-          phone,
-        });
+        // Update user in Supabase using service role client
+        const { data: user, error } = await supabaseAdmin
+          .from("users")
+          .update({
+            first_name: first_name || "User",
+            last_name: last_name || "",
+            phone,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id)
+          .select()
+          .single();
 
-        if (!result.success) {
-          throw result.error;
+        if (error) {
+          throw error;
         }
 
         // Log user update
         await activityLogsDb.log({
-          clinic_id: "system",
+          clinic_id: user?.clinic_id || "system",
           user_id: id,
           entity_type: "users",
           entity_id: id,
@@ -176,10 +203,10 @@ export async function POST(req: Request) {
           status: "success",
         });
 
-        console.log(`User updated: ${email}`);
+        console.log(`✅ User updated: ${email}`);
         return NextResponse.json({ success: true }, { status: 200 });
       } catch (error) {
-        console.error("Error updating user:", error);
+        console.error("❌ Error updating user:", error);
 
         // Log failed update
         await activityLogsDb.log({
@@ -193,7 +220,7 @@ export async function POST(req: Request) {
         });
 
         return NextResponse.json(
-          { error: "Failed to update user" },
+          { error: "Failed to update user", details: String(error) },
           { status: 500 }
         );
       }
@@ -206,11 +233,18 @@ export async function POST(req: Request) {
       const { id } = evt.data;
 
       try {
-        // Soft delete user in Supabase
-        const result = await usersDb.delete(id);
+        // Soft delete user in Supabase using service role client
+        const { error } = await supabaseAdmin
+          .from("users")
+          .update({
+            deleted_at: new Date().toISOString(),
+            is_active: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", id);
 
-        if (!result.success) {
-          throw result.error;
+        if (error) {
+          throw error;
         }
 
         // Log user deletion
@@ -223,10 +257,10 @@ export async function POST(req: Request) {
           status: "success",
         });
 
-        console.log(`User deleted: ${id}`);
+        console.log(`✅ User deleted: ${id}`);
         return NextResponse.json({ success: true }, { status: 200 });
       } catch (error) {
-        console.error("Error deleting user:", error);
+        console.error("❌ Error deleting user:", error);
 
         // Log failed deletion
         await activityLogsDb.log({
@@ -240,19 +274,19 @@ export async function POST(req: Request) {
         });
 
         return NextResponse.json(
-          { error: "Failed to delete user" },
+          { error: "Failed to delete user", details: String(error) },
           { status: 500 }
         );
       }
     }
 
     // Handle other event types
-    console.log(`Unhandled event type: ${evt.type}`);
+    console.log(`ℹ️ Unhandled event type: ${evt.type}`);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
-    console.error("Webhook error:", error);
+    console.error("❌ Webhook error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", details: String(error) },
       { status: 500 }
     );
   }

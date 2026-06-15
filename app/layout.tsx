@@ -32,7 +32,17 @@ export default function RootLayout({
   }
 
   return (
-    <ClerkProvider publishableKey={publishableKey}>
+    <ClerkProvider 
+      publishableKey={publishableKey}
+      localization={{
+        signIn: {
+          start: {
+            title: "تسجيل الدخول",
+            subtitle: "للوصول إلى لوحة تحكم عيادتك"
+          }
+        }
+      }}
+    >
       {content}
     </ClerkProvider>
   );
