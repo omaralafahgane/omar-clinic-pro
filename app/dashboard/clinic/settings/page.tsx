@@ -30,20 +30,10 @@ export default function ClinicSettingsPage() {
     }
   }, []);
 
-  // Fetch clinic data on mount
+  // Fetch clinic data from database
   useEffect(() => {
     const fetchClinic = async () => {
       try {
-        // First, try to load from localStorage
-        const savedData = localStorage.getItem("clinicData");
-        if (savedData) {
-          const parsed = JSON.parse(savedData);
-          setClinicData(parsed);
-          setLoading(false);
-          return;
-        }
-
-        // If no local data, try to fetch from server
         const res = await fetch("/api/clinic");
         if (res.ok) {
           const data = await res.json();
@@ -82,10 +72,6 @@ export default function ClinicSettingsPage() {
     setMessage(null);
 
     try {
-      // Save to localStorage first (local backup)
-      localStorage.setItem("clinicData", JSON.stringify(clinicData));
-
-      // Try to save to server/database
       const res = await fetch("/api/clinic", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -97,14 +83,11 @@ export default function ClinicSettingsPage() {
         setMessage({ type: "success", text: data.message || "تم حفظ البيانات بنجاح ✅" });
         setTimeout(() => setMessage(null), 3000);
       } else {
-        // Even if server fails, data is saved locally
-        setMessage({ type: "success", text: "تم حفظ البيانات بنجاح ✅" });
-        setTimeout(() => setMessage(null), 3000);
+        const err = await res.json().catch(() => ({}));
+        setMessage({ type: "error", text: `فشل الحفظ: ${err.error || err.details || "حاول مرة أخرى"}` });
       }
-    } catch (error) {
-      // Even on error, data is saved locally
-      setMessage({ type: "success", text: "تم حفظ البيانات بنجاح ✅" });
-      setTimeout(() => setMessage(null), 3000);
+    } catch (error: any) {
+      setMessage({ type: "error", text: `خطأ: ${error.message || "حدث خطأ غير متوقع"}` });
     } finally {
       setSaving(false);
     }
@@ -126,7 +109,7 @@ export default function ClinicSettingsPage() {
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-400">جاري تحميل البيانات...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">جاري تحميل البيانات من قاعدة البيانات...</p>
         </div>
       </div>
     );
@@ -151,7 +134,7 @@ export default function ClinicSettingsPage() {
             </svg>
           ) : (
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 2a1 1 0 011 1v2a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.536l1.414 1.414a1 1 0 001.414-1.414l-1.414-1.414a1 1 0 00-1.414 1.414zm2.828-2.828l1.414-1.414a1 1 0 00-1.414-1.414l-1.414 1.414a1 1 0 001.414 1.414zm0-4.242L13.536 5.464a1 1 0 001.414-1.414L14.95 6.364a1 1 0 10-1.414 1.414zM5.464 5.464a1 1 0 001.414-1.414L5.464 2.636a1 1 0 00-1.414 1.414l1.414 1.414zM3 8a1 1 0 110 2H1a1 1 0 110-2h2zm14 0a1 1 0 110 2h2a1 1 0 110-2h-2zM3.464 14.536a1 1 0 00-1.414 1.414l1.414 1.414a1 1 0 001.414-1.414l-1.414-1.414zm11.314-1.414a1 1 0 00-1.414 1.414l1.414 1.414a1 1 0 001.414-1.414l-1.414-1.414z" clipRule="evenodd"></path>
+              <path fillRule="evenodd" d="M10 2a1 1 0 011 1v2a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.536l1.414 1.414a1 1 0 001.414-1.414l-1.414-1.414a1 1 0 00-1.414 1.414zm2.828-2.828l1.414-1.414a1 1 0 00-1.414-1.414l-1.414 1.414a1 1 0 001.414 1.414zM5.464 5.464a1 1 0 001.414-1.414L5.464 2.636a1 1 0 00-1.414 1.414l1.414 1.414zM3 8a1 1 0 110 2H1a1 1 0 110-2h2zm14 0a1 1 0 110 2h2a1 1 0 110-2h-2zM3.464 14.536a1 1 0 00-1.414 1.414l1.414 1.414a1 1 0 001.414-1.414l-1.414-1.414zm11.314-1.414a1 1 0 00-1.414 1.414l1.414 1.414a1 1 0 001.414-1.414l-1.414-1.414z" clipRule="evenodd"></path>
             </svg>
           )}
         </button>
@@ -369,7 +352,7 @@ export default function ClinicSettingsPage() {
                   <path d="M19.414 3.586a2 2 0 00-2.828 0L7 13.172V16h2.828l9.586-9.586a2 2 0 000-2.828z"></path>
                   <path fillRule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clipRule="evenodd"></path>
                 </svg>
-                حفظ البيانات
+                حفظ البيانات في قاعدة البيانات
               </>
             )}
           </button>

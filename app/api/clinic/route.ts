@@ -2,8 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
+// Initialize Supabase with service role key for server-side operations
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl || !supabaseServiceKey) {
+  console.error("Missing Supabase configuration");
+}
+
+const supabase = supabaseUrl && supabaseServiceKey 
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null;
+
 /**
- * GET: Fetch current clinic details for the logged-in user
+ * GET: Fetch clinic data for the logged-in user
  */
 export async function GET() {
   try {
@@ -13,27 +25,51 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Return a response indicating setup is needed
-    // The frontend will handle the redirect
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Database not configured" },
+        { status: 500 }
+      );
+    }
+
+    // Query clinics table for this user
+    const { data, error } = await supabase
+      .from("clinics")
+      .select("*")
+      .eq("owner_id", userId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return NextResponse.json(
+        { error: "Failed to fetch clinic data", details: error.message },
+        { status: 500 }
+      );
+    }
+
+    if (!data) {
+      return NextResponse.json(
+        { 
+          error: "CLINIC_SETUP_REQUIRED",
+          message: "يرجى إكمال بيانات العيادة",
+          requiresSetup: true
+        },
+        { status: 206 }
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch (error: any) {
+    console.error("API Error (GET):", error);
     return NextResponse.json(
-      { 
-        error: "CLINIC_SETUP_REQUIRED",
-        message: "يرجى إكمال بيانات العيادة",
-        requiresSetup: true
-      },
-      { status: 206 }
-    );
-  } catch (error) {
-    console.error("API Error (GET Clinic):", error);
-    return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: "Internal Server Error", details: error.message },
       { status: 500 }
     );
   }
 }
 
 /**
- * PATCH: Save clinic details to localStorage (client-side persistence)
+ * PATCH: Update or create clinic data
  */
 export async function PATCH(req: NextRequest) {
   try {
@@ -44,10 +80,16 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    if (!supabase) {
+      return NextResponse.json(
+        { error: "Database not configured" },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json();
     const { name, email, phone, address, city, country, website, description } = body;
 
-    // Validate required fields
     if (!name || name.trim() === "") {
       return NextResponse.json(
         { error: "اسم العيادة مطلوب" },
@@ -55,112 +97,94 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    // Try to save to Supabase if configured
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    // Check if clinic exists for this user
+    const { data: existingClinic, error: checkError } = await supabase
+      .from("clinics")
+      .select("id")
+      .eq("owner_id", userId)
+      .maybeSingle();
 
-    if (supabaseUrl && supabaseKey) {
-      try {
-        const supabase = createClient(supabaseUrl, supabaseKey);
+    if (checkError) {
+      console.error("Error checking clinic:", checkError);
+      return NextResponse.json(
+        { error: "Failed to check clinic", details: checkError.message },
+        { status: 500 }
+      );
+    }
 
-        // Prepare clinic data
-        const clinicData = {
-          owner_id: userId,
-          name: name || "",
-          email: email || user?.primaryEmailAddress?.emailAddress || "",
+    let result;
+
+    if (existingClinic) {
+      // Update existing clinic
+      const { data: updatedClinic, error: updateError } = await supabase
+        .from("clinics")
+        .update({
+          name,
+          email: email || "",
           phone: phone || "",
           address: address || "",
           city: city || "",
           country: country || "SA",
           website: website || "",
           description: description || "",
-          is_active: true,
           updated_at: new Date().toISOString(),
-        };
+        })
+        .eq("id", existingClinic.id)
+        .select()
+        .single();
 
-        // Try to find existing clinic by owner_id
-        const { data: existingClinics, error: findError } = await supabase
-          .from("clinics")
-          .select("id")
-          .eq("owner_id", userId)
-          .limit(1);
-
-        let result;
-
-        if (!findError && existingClinics && existingClinics.length > 0) {
-          // Update existing clinic
-          const { data: updatedClinic, error: updateError } = await supabase
-            .from("clinics")
-            .update(clinicData)
-            .eq("owner_id", userId)
-            .select()
-            .single();
-
-          if (updateError) throw updateError;
-          result = updatedClinic;
-        } else {
-          // Create new clinic
-          const { data: newClinic, error: createError } = await supabase
-            .from("clinics")
-            .insert([{ ...clinicData, created_at: new Date().toISOString() }])
-            .select()
-            .single();
-
-          if (createError) throw createError;
-          result = newClinic;
-        }
-
-        return NextResponse.json({
-          success: true,
-          data: result,
-          message: "تم حفظ البيانات بنجاح",
-        });
-      } catch (dbError: any) {
-        console.error("Database error:", dbError);
-        // Even if database fails, return success to allow client-side storage
-        return NextResponse.json({
-          success: true,
-          data: {
-            id: userId,
-            name,
-            email,
-            phone,
-            address,
-            city,
-            country,
-            website,
-            description,
-          },
-          message: "تم حفظ البيانات محلياً",
-          warning: "تم الحفظ المحلي فقط - قد تحتاج إلى التحقق من إعدادات قاعدة البيانات",
-        });
+      if (updateError) {
+        console.error("Update error:", updateError);
+        return NextResponse.json(
+          { error: "Failed to update clinic", details: updateError.message },
+          { status: 500 }
+        );
       }
+
+      result = updatedClinic;
+    } else {
+      // Create new clinic
+      const { data: newClinic, error: createError } = await supabase
+        .from("clinics")
+        .insert([
+          {
+            owner_id: userId,
+            name,
+            email: email || user?.primaryEmailAddress?.emailAddress || "",
+            phone: phone || "",
+            address: address || "",
+            city: city || "",
+            country: country || "SA",
+            website: website || "",
+            description: description || "",
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ])
+        .select()
+        .single();
+
+      if (createError) {
+        console.error("Create error:", createError);
+        return NextResponse.json(
+          { error: "Failed to create clinic", details: createError.message },
+          { status: 500 }
+        );
+      }
+
+      result = newClinic;
     }
 
-    // If no database configured, still return success
     return NextResponse.json({
       success: true,
-      data: {
-        id: userId,
-        name,
-        email,
-        phone,
-        address,
-        city,
-        country,
-        website,
-        description,
-      },
-      message: "تم حفظ البيانات بنجاح",
+      data: result,
+      message: "تم حفظ البيانات بنجاح في قاعدة البيانات",
     });
   } catch (error: any) {
-    console.error("API Error (PATCH Clinic):", error);
+    console.error("API Error (PATCH):", error);
     return NextResponse.json(
-      {
-        success: false,
-        error: "فشل في حفظ البيانات",
-        details: error.message || "حاول مرة أخرى",
-      },
+      { error: "Internal Server Error", details: error.message },
       { status: 500 }
     );
   }
