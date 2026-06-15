@@ -54,7 +54,7 @@ export async function GET() {
     // If no clinic associated, create a default one for the user
     if (!clinicId) {
       console.log("No clinic found for user, creating a default one...");
-      const defaultClinic = await clinicsDb.create({
+      let defaultClinic = await clinicsDb.create({
         name: `${user?.firstName || 'عيادة'} ${user?.lastName || 'جديدة'}`,
         email: user?.emailAddresses[0]?.emailAddress || "",
         phone: "",
@@ -64,9 +64,22 @@ export async function GET() {
         owner_id: userId
       });
 
+      // If failed, try without owner_id (maybe the column doesn't exist yet)
+      if (!defaultClinic.success) {
+        console.log("Retrying clinic creation without owner_id...");
+        defaultClinic = await clinicsDb.create({
+          name: `${user?.firstName || 'عيادة'} ${user?.lastName || 'جديدة'}`,
+          email: user?.emailAddresses[0]?.emailAddress || "",
+          phone: "",
+          address: "",
+          city: "",
+          country: "SA",
+          owner_id: "" // Empty string or omit
+        } as any);
+      }
+
       if (defaultClinic.success) {
         clinicId = defaultClinic.data.id;
-        // Link user to this clinic
         await usersDb.update(userId, { clinic_id: clinicId });
       } else {
         return NextResponse.json({ 
@@ -117,7 +130,7 @@ export async function PATCH(req: NextRequest) {
     // If no clinic associated, create a default one (same logic as GET)
     if (!clinicId) {
       console.log("No clinic found for user during PATCH, creating a default one...");
-      const defaultClinic = await clinicsDb.create({
+      let defaultClinic = await clinicsDb.create({
         name: `${user?.firstName || 'عيادة'} ${user?.lastName || 'جديدة'}`,
         email: user?.emailAddresses[0]?.emailAddress || "",
         phone: "",
@@ -126,6 +139,18 @@ export async function PATCH(req: NextRequest) {
         country: "SA",
         owner_id: userId
       });
+
+      if (!defaultClinic.success) {
+        defaultClinic = await clinicsDb.create({
+          name: `${user?.firstName || 'عيادة'} ${user?.lastName || 'جديدة'}`,
+          email: user?.emailAddresses[0]?.emailAddress || "",
+          phone: "",
+          address: "",
+          city: "",
+          country: "SA",
+          owner_id: ""
+        } as any);
+      }
 
       if (defaultClinic.success) {
         clinicId = defaultClinic.data.id;
