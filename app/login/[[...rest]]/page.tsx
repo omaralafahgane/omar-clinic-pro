@@ -1,11 +1,10 @@
 "use client";
-
 import { SignIn } from "@clerk/nextjs";
 import Link from "next/link";
 
 /**
- * LoginPage - Updated to ensure "Forgot Password" is fully functional via Clerk
- * This page uses Clerk's official components which handle password recovery automatically.
+ * LoginPage - Uses optional catch-all route [[...rest]] as required by Clerk
+ * for multi-step flows (SSO callbacks, MFA, email verification, etc.)
  */
 export default function LoginPage() {
   return (
@@ -17,13 +16,11 @@ export default function LoginPage() {
         </svg>
         العودة للرئيسية
       </Link>
-
       <div className="w-full max-w-[450px] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
         <div className="p-8 text-center bg-blue-600">
           <h1 className="text-3xl font-black text-white tracking-tight">Omar Clinic Pro</h1>
           <p className="text-blue-100 text-sm mt-2 font-medium">نظام إدارة العيادات المتكامل</p>
         </div>
-        
         <div className="p-2 flex justify-center">
           <SignIn 
             routing="path"
@@ -52,7 +49,6 @@ export default function LoginPage() {
           />
         </div>
       </div>
-      
       <p className="mt-8 text-gray-400 text-xs">
         &copy; 2026 Omar Clinic Pro - الحل الأمثل لإدارة عيادتك باحترافية
       </p>

@@ -1,11 +1,10 @@
 "use client";
-
 import { SignUp } from "@clerk/nextjs";
 import Link from "next/link";
 
 /**
- * FreeTrialPage - Updated to ensure complete removal of old manual signup logic
- * This page now exclusively uses Clerk for user registration.
+ * FreeTrialPage - Uses optional catch-all route [[...rest]] as required by Clerk
+ * for multi-step flows (SSO callbacks, MFA, email verification, etc.)
  */
 export default function FreeTrialPage() {
   return (
@@ -17,16 +16,15 @@ export default function FreeTrialPage() {
         </svg>
         العودة للرئيسية
       </Link>
-
       <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
         <div className="p-8 text-center bg-green-600">
           <h1 className="text-2xl font-black text-white">تجربة مجانية</h1>
           <p className="text-green-100 text-sm mt-1">14 يوم مجاني بدون بطاقة ائتمان</p>
         </div>
-        
         <div className="p-4 flex justify-center">
           <SignUp 
-            routing="hash"
+            routing="path"
+            path="/free-trial"
             signInUrl="/login"
             afterSignUpUrl="/dashboard/clinic"
             appearance={{
@@ -39,14 +37,12 @@ export default function FreeTrialPage() {
             }}
           />
         </div>
-
         <div className="px-8 pb-6 border-t border-gray-100">
           <p className="text-xs text-gray-500 text-center">
             بالتسجيل، أنت توافق على شروط الخدمة وسياسة الخصوصية
           </p>
         </div>
       </div>
-      
       <p className="mt-8 text-gray-400 text-xs">
         &copy; 2026 Omar Clinic Pro - جميع الحقوق محفوظة
       </p>
