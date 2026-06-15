@@ -16,13 +16,36 @@ export async function GET() {
     // Find user to get their clinic_id
     let userResult = await usersDb.findById(userId);
     
-    // If user doesn't exist in Supabase yet (first time login), the webhook might be slow
-    // Let's try to find by email or create a placeholder if needed for this session
+    // If user doesn't exist in Supabase yet (first time login or webhook failure)
     if (!userResult.success || !userResult.data) {
-      console.log("User not found in Supabase, checking by email...");
+      console.log("User not found in Supabase, attempting to create user record...");
       const email = user?.emailAddresses[0]?.emailAddress;
-      if (email) {
-        userResult = await usersDb.findByEmail(email);
+      if (!email) {
+        return NextResponse.json({ error: "User email not found" }, { status: 400 });
+      }
+
+      // Try finding by email first to avoid duplicates
+      const existingUser = await usersDb.findByEmail(email);
+      if (existingUser.success && existingUser.data) {
+        userResult = existingUser;
+      } else {
+        // Create user record manually if webhook failed
+        let roleName = email === "omaralblack@gmail.com" ? "admin" : "patient";
+        const roleResult = await rolesDb.findByName(roleName);
+        
+        const newUser = await usersDb.create({
+          id: userId,
+          email,
+          first_name: user?.firstName || "User",
+          last_name: user?.lastName || "",
+          role_id: roleResult.success ? roleResult.data.id : "patient", // fallback to string if ID fails
+        });
+
+        if (newUser.success) {
+          userResult = newUser;
+        } else {
+          return NextResponse.json({ error: "Failed to sync user to database" }, { status: 500 });
+        }
       }
     }
 
