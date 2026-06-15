@@ -37,10 +37,13 @@ export default function SettingsPage() {
             city: data.city || ""
           });
         } else {
-          setMessage({ type: "error", text: "فشل في استرجاع بيانات العيادة ❌" });
+          const errorData = await res.json().catch(() => ({}));
+          const errorMessage = errorData.details ? `${errorData.error}: ${errorData.details}` : (errorData.error || "فشل في استرجاع بيانات العيادة");
+          setMessage({ type: "error", text: `فشل في استرجاع بيانات العيادة ❌\n${errorMessage}` });
         }
       } catch (error) {
         console.error("Failed to fetch clinic:", error);
+        setMessage({ type: "error", text: `فشل في استرجاع بيانات العيادة ❌\n${String(error)}` });
       } finally {
         setLoading(false);
       }
@@ -73,8 +76,9 @@ export default function SettingsPage() {
       if (res.ok) {
         setMessage({ type: "success", text: "تم حفظ التغييرات بنجاح ✅" });
       } else {
-        const err = await res.json();
-        setMessage({ type: "error", text: err.error || "فشل الحفظ ❌" });
+        const err = await res.json().catch(() => ({}));
+        const errorMessage = err.details ? `${err.error}: ${err.details}` : (err.error || "فشل الحفظ");
+        setMessage({ type: "error", text: `${errorMessage} ❌` });
       }
     } catch (error) {
       setMessage({ type: "error", text: "حدث خطأ غير متوقع ❌" });
@@ -102,7 +106,7 @@ export default function SettingsPage() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">إدارة حسابك الشخصي وتفضيلات العيادة</p>
         </div>
         {message.text && (
-          <div className={`px-4 py-2 rounded-xl text-sm font-bold animate-bounce shadow-sm ${
+          <div className={`px-4 py-2 rounded-xl text-sm font-bold animate-bounce shadow-sm whitespace-pre-wrap max-w-md ${
             message.type === "success" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
           }`}>
             {message.text}
