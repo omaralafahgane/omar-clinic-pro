@@ -1,0 +1,11 @@
+name = "omar-clinic-pro"
+compatibility_date = "2024-04-03"
+compatibility_flags = ["nodejs_compat"]
+
+[site]
+bucket = ".next"
+
+[env.production.vars]
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_YXJyaXZpbmctZmxvdW5kZXItNDMuY2xlcmsuYWNjb3VudHMuZGV2JA"
+NEXT_PUBLIC_SUPABASE_URL = "https://rrjdrqbsjdamdlvqvczn.supabase.co"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJyamRycWJzamRhbWRsdnF2Y3puIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5ODczNjgsImV4cCI6MjA5NjU2MzM2OH0.R75AlW0_rxqGxHq3K4DCuO0lPzIr9AW0dZrCUTHjf8c"
