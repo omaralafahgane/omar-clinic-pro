@@ -252,6 +252,7 @@ export const clinicsDb = {
             address: data.address,
             city: data.city,
             country: data.country,
+            owner_id: data.owner_id, // Ensure owner_id is passed if the schema supports it
             is_active: true,
           },
         ])

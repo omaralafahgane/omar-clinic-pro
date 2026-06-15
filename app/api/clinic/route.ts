@@ -69,7 +69,10 @@ export async function GET() {
         // Link user to this clinic
         await usersDb.update(userId, { clinic_id: clinicId });
       } else {
-        return NextResponse.json({ error: "Failed to create initial clinic" }, { status: 500 });
+        return NextResponse.json({ 
+          error: "Failed to create initial clinic",
+          details: (defaultClinic.error as any)?.message || "Database error"
+        }, { status: 500 });
       }
     }
 
@@ -128,7 +131,10 @@ export async function PATCH(req: NextRequest) {
         clinicId = defaultClinic.data.id;
         await usersDb.update(userId, { clinic_id: clinicId });
       } else {
-        return NextResponse.json({ error: "Clinic not found and failed to create one" }, { status: 404 });
+        return NextResponse.json({ 
+          error: "Clinic not found and failed to create one",
+          details: (defaultClinic.error as any)?.message || "Database error"
+        }, { status: 404 });
       }
     }
     
