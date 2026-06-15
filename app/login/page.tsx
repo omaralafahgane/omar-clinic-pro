@@ -4,8 +4,8 @@ import { SignIn } from "@clerk/nextjs";
 import Link from "next/link";
 
 /**
- * LoginPage - Updated to ensure complete removal of old manual login logic
- * This page now exclusively uses Clerk for authentication.
+ * LoginPage - Updated to ensure "Forgot Password" is fully functional via Clerk
+ * This page uses Clerk's official components which handle password recovery automatically.
  */
 export default function LoginPage() {
   return (
@@ -18,23 +18,35 @@ export default function LoginPage() {
         العودة للرئيسية
       </Link>
 
-      <div className="w-full max-w-[400px] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+      <div className="w-full max-w-[450px] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
         <div className="p-8 text-center bg-blue-600">
-          <h1 className="text-2xl font-black text-white">Omar Clinic Pro</h1>
-          <p className="text-blue-100 text-sm mt-1">تسجيل الدخول للنظام</p>
+          <h1 className="text-3xl font-black text-white tracking-tight">Omar Clinic Pro</h1>
+          <p className="text-blue-100 text-sm mt-2 font-medium">نظام إدارة العيادات المتكامل</p>
         </div>
         
-        <div className="p-4 flex justify-center">
+        <div className="p-2 flex justify-center">
           <SignIn 
-            routing="hash"
+            routing="path"
+            path="/login"
             signUpUrl="/free-trial"
             afterSignInUrl="/dashboard/clinic"
             appearance={{
               elements: {
                 rootBox: "w-full",
-                card: "shadow-none border-none w-full",
-                header: "hidden",
-                footer: "bg-transparent",
+                card: "shadow-none border-none w-full p-0",
+                headerTitle: "text-xl font-bold text-gray-800",
+                headerSubtitle: "text-gray-500",
+                formButtonPrimary: "bg-blue-600 hover:bg-blue-700 text-sm normal-case",
+                footerActionLink: "text-blue-600 hover:text-blue-800 font-semibold",
+                identityPreviewText: "text-gray-600",
+                formFieldLabel: "text-gray-700 font-medium",
+                formFieldInput: "border-gray-200 focus:border-blue-500 focus:ring-blue-500",
+                dividerLine: "bg-gray-100",
+                dividerText: "text-gray-400 text-xs uppercase",
+              },
+              layout: {
+                socialButtonsPlacement: "bottom",
+                showOptionalFields: true,
               }
             }}
           />
@@ -42,7 +54,7 @@ export default function LoginPage() {
       </div>
       
       <p className="mt-8 text-gray-400 text-xs">
-        &copy; 2026 Omar Clinic Pro - جميع الحقوق محفوظة
+        &copy; 2026 Omar Clinic Pro - الحل الأمثل لإدارة عيادتك باحترافية
       </p>
     </div>
   );
