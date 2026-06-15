@@ -75,11 +75,38 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { name, phone, address, city } = body;
 
-    const userResult = await usersDb.findById(userId);
-    const clinicId = userResult.data?.clinic_id;
+    // Find user to get their clinic_id
+    let userResult = await usersDb.findById(userId);
+    const user = await currentUser();
+    
+    if (!userResult.success || !userResult.data) {
+      const email = user?.emailAddresses[0]?.emailAddress;
+      if (email) {
+        userResult = await usersDb.findByEmail(email);
+      }
+    }
 
+    let clinicId = userResult.data?.clinic_id;
+
+    // If no clinic associated, create a default one (same logic as GET)
     if (!clinicId) {
-      return NextResponse.json({ error: "Clinic not found" }, { status: 404 });
+      console.log("No clinic found for user during PATCH, creating a default one...");
+      const defaultClinic = await clinicsDb.create({
+        name: `${user?.firstName || 'عيادة'} ${user?.lastName || 'جديدة'}`,
+        email: user?.emailAddresses[0]?.emailAddress || "",
+        phone: "",
+        address: "",
+        city: "",
+        country: "SA",
+        owner_id: userId
+      });
+
+      if (defaultClinic.success) {
+        clinicId = defaultClinic.data.id;
+        await usersDb.update(userId, { clinic_id: clinicId });
+      } else {
+        return NextResponse.json({ error: "Clinic not found and failed to create one" }, { status: 404 });
+      }
     }
     
     const updateResult = await clinicsDb.update(clinicId, {
