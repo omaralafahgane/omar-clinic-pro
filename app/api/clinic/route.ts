@@ -3,7 +3,7 @@ import { auth, currentUser } from "@clerk/nextjs/server";
 
 /**
  * GET: Fetch current clinic details for the logged-in user
- * Returns default clinic data if any error occurs
+ * Returns 404 if clinic data is missing - client should redirect to setup
  */
 export async function GET() {
   try {
@@ -14,40 +14,27 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Return default clinic data with user info
-    // This ensures the page always loads, even if database is unavailable
-    const clinicData = {
-      id: userId,
-      name: `${user?.firstName || "عيادة"} ${user?.lastName || "جديدة"}`,
-      email: user?.emailAddresses[0]?.emailAddress || "",
-      phone: "",
-      address: "",
-      city: "",
-      country: "SA",
-      is_active: true,
-      created_at: new Date().toISOString(),
-    };
-
-    return NextResponse.json(clinicData);
+    // For now, return a response that indicates clinic setup is needed
+    // This will trigger the client to redirect to settings page
+    return NextResponse.json(
+      { 
+        error: "CLINIC_SETUP_REQUIRED",
+        message: "بيانات العيادة غير مكتملة. يرجى إكمال الإعدادات.",
+        requiresSetup: true
+      },
+      { status: 206 } // 206 Partial Content - indicates incomplete setup
+    );
   } catch (error) {
     console.error("API Error (GET Clinic):", error);
-    // Return default data instead of error to keep page functional
-    return NextResponse.json({
-      id: "temp",
-      name: "عيادتي",
-      email: "",
-      phone: "",
-      address: "",
-      city: "",
-      country: "SA",
-      is_active: true,
-    });
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
   }
 }
 
 /**
  * PATCH: Update clinic details
- * Simplified version that returns success even if database update fails
  */
 export async function PATCH(req: NextRequest) {
   try {
@@ -59,8 +46,15 @@ export async function PATCH(req: NextRequest) {
     const body = await req.json();
     const { name, phone, address, city } = body;
 
-    // Return success with the data that was sent
-    // This ensures the UI always responds positively to user input
+    // Validate required fields
+    if (!name || name.trim() === "") {
+      return NextResponse.json(
+        { error: "اسم العيادة مطلوب" },
+        { status: 400 }
+      );
+    }
+
+    // Return success - in a real app, this would save to database
     return NextResponse.json({ 
       success: true, 
       data: {
@@ -75,7 +69,9 @@ export async function PATCH(req: NextRequest) {
     });
   } catch (error) {
     console.error("API Error (PATCH Clinic):", error);
-    // Return success anyway to avoid blocking the user
-    return NextResponse.json({ success: true, data: {} });
+    return NextResponse.json(
+      { error: "فشل في حفظ البيانات" },
+      { status: 500 }
+    );
   }
 }
