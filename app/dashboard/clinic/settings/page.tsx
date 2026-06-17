@@ -76,8 +76,8 @@ export default function ClinicSettingsPage() {
       if (response.ok && responseData.success) {
         console.log('[Settings] Save successful, redirecting...');
         toast.success('تم حفظ بيانات العيادة بنجاح');
-        // Use hard redirect to clear any cached state
-        window.location.href = '/dashboard/clinic/subscription';
+        // Use router.push for smooth navigation without page reload
+        router.push('/dashboard/clinic/subscription');
       } else {
         const errorMsg = responseData.error || 'فشل حفظ البيانات';
         console.error('[Settings] Save failed:', errorMsg);
