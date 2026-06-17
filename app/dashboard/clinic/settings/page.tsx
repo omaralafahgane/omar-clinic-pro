@@ -63,7 +63,7 @@ export default function SettingsPage() {
       const result = await response.json();
       if (response.ok && result.success) {
         setSuccess("تم حفظ البيانات بنجاح! ✅");
-        setTimeout(() => window.location.href = '/dashboard/clinic', 1500);
+        setTimeout(() => window.location.href = '/dashboard/clinic/subscription', 1500);
       } else {
         setError(result.error || "فشل في حفظ البيانات");
       }
