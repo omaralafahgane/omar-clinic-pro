@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 import { toast } from 'sonner';
+import { Sidebar } from '@/components/layout/Sidebar';
+import { Header } from '@/components/layout/Header';
 
-export default function ClinicSettingsPageV2() {
+export default function ClinicSettingsPage() {
   const router = useRouter();
   const { userId } = useAuth();
   const [loading, setLoading] = useState(false);
@@ -20,23 +22,29 @@ export default function ClinicSettingsPageV2() {
     description: ''
   });
 
-  // VERSION 2.0 - CACHE BREAKER
   useEffect(() => {
-    async function checkClinic() {
+    async function loadClinicData() {
       try {
-        // Use v2 API to bypass cache
         const res = await fetch('/api/clinic-v2?t=' + Date.now());
         const data = await res.json();
         if (res.ok && data.success && data.data) {
-          window.location.href = '/dashboard/clinic/subscription';
-        } else {
-          setInitialLoading(false);
+          setFormData({
+            name: data.data.name || '',
+            email: data.data.email || '',
+            phone: data.data.phone || '',
+            address: data.data.address || '',
+            city: data.data.city || '',
+            country: data.data.country || 'الأردن',
+            description: data.data.description || ''
+          });
         }
       } catch (err) {
+        console.error('Error loading clinic:', err);
+      } finally {
         setInitialLoading(false);
       }
     }
-    checkClinic();
+    loadClinicData();
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -58,15 +66,12 @@ export default function ClinicSettingsPageV2() {
       const responseData = await response.json();
 
       if (response.ok && responseData.success) {
-        toast.success('تم التفعيل بنجاح! جاري التوجيه...');
-        setTimeout(() => {
-          window.location.href = '/dashboard/clinic/subscription';
-        }, 1500);
+        toast.success('تم تحديث بيانات العيادة بنجاح');
       } else {
         toast.error(responseData.error || 'فشل في حفظ البيانات');
       }
     } catch (error) {
-      toast.error('خطأ في الاتصال، يرجى المحاولة مرة أخرى');
+      toast.error('خطأ في الاتصال بالخادم');
     } finally {
       setLoading(false);
     }
@@ -74,102 +79,113 @@ export default function ClinicSettingsPageV2() {
 
   if (initialLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <div className="flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-blue-600 font-black">جاري تحضير النظام (V2)...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4" dir="rtl">
-      <div className="max-w-3xl mx-auto">
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
-          <div className="bg-blue-600 p-8 text-white text-center">
-            <h1 className="text-3xl font-black mb-2">تفعيل عيادة Omar Clinic Pro</h1>
-            <p className="opacity-90">أدخل بيانات عيادتك لمرة واحدة فقط للبدء</p>
+    <div className="min-h-screen bg-gray-50" dir="rtl">
+      <Sidebar />
+      <Header />
+
+      <main className="mr-64 mt-16 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-black text-gray-900">إعدادات العيادة</h1>
+            <p className="text-gray-500 mt-2">إدارة المعلومات الأساسية لعيادتك</p>
           </div>
-          
-          <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <form onSubmit={handleSubmit} className="p-8 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">اسم العيادة *</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">البريد الإلكتروني *</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">رقم الهاتف *</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-left"
+                    dir="ltr"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">المدينة *</label>
+                  <input
+                    type="text"
+                    name="city"
+                    value={formData.city}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <label className="text-sm font-black text-slate-700 mr-1">اسم العيادة الرسمية *</label>
+                <label className="text-sm font-bold text-gray-700">العنوان الكامل *</label>
                 <input
                   type="text"
-                  name="name"
-                  value={formData.name}
+                  name="address"
+                  value={formData.address}
                   onChange={handleChange}
                   required
-                  className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:bg-white outline-none transition-all text-lg"
-                  placeholder="مثال: مجمع الشفاء الطبي"
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-black text-slate-700 mr-1">البريد الإلكتروني *</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:bg-white outline-none transition-all text-lg"
-                  placeholder="clinic@example.com"
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="space-y-2">
-                <label className="text-sm font-black text-slate-700 mr-1">رقم التواصل الأردني *</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={formData.phone}
+                <label className="text-sm font-bold text-gray-700">الوصف (اختياري)</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
                   onChange={handleChange}
-                  required
-                  className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:bg-white outline-none transition-all text-lg text-left"
-                  placeholder="07XXXXXXXX"
+                  rows={4}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 />
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-black text-slate-700 mr-1">المدينة *</label>
-                <input
-                  type="text"
-                  name="city"
-                  value={formData.city}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:bg-white outline-none transition-all text-lg"
-                  placeholder="عمّان، الزرقاء، إربد..."
-                />
+
+              <div className="flex justify-end pt-4">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 disabled:bg-gray-400"
+                >
+                  {loading ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                </button>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-black text-slate-700 mr-1">العنوان التفصيلي *</label>
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                required
-                className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-blue-500 focus:bg-white outline-none transition-all text-lg"
-                placeholder="اسم الشارع، رقم البناية"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-5 rounded-2xl font-black text-xl shadow-xl shadow-blue-200 transition-all active:scale-[0.98] disabled:bg-slate-300 disabled:shadow-none"
-            >
-              {loading ? 'جاري تفعيل النظام...' : 'تأكيد البيانات والبدء فوراً'}
-            </button>
-          </form>
+            </form>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
