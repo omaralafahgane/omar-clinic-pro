@@ -18,10 +18,10 @@ export default function Home() {
                 تسجيل الدخول
               </Link>
               <Link
-                href="/free-trial"
+                href="/login"
                 className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
               >
-                تجربة مجانية
+                ابدأ الآن
               </Link>
             </div>
           </div>
@@ -40,10 +40,10 @@ export default function Home() {
           </p>
           <div className="flex gap-4 justify-center">
             <Link
-              href="/free-trial"
+              href="/login"
               className="bg-blue-500 text-white px-8 py-3 rounded-lg hover:bg-blue-600 font-semibold"
             >
-              ابدأ تجربة مجانية
+              اشترك الآن
             </Link>
             <Link
               href="/features"
@@ -92,13 +92,13 @@ export default function Home() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold mb-6">هل أنت مستعد للبدء؟</h2>
           <p className="text-lg mb-8 opacity-90">
-            احصل على تجربة مجانية لمدة 14 يوم بدون الحاجة لبطاقة ائتمان
+            انضم إلينا اليوم وقم بإدارة عيادتك باحترافية كاملة
           </p>
           <Link
-            href="/free-trial"
+            href="/login"
             className="bg-white text-blue-500 px-8 py-3 rounded-lg hover:bg-gray-100 font-semibold inline-block"
           >
-            ابدأ الآن
+            اشترك الآن
           </Link>
         </div>
       </section>
