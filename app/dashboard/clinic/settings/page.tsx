@@ -23,33 +23,20 @@ export default function ClinicSettingsPage() {
   useEffect(() => {
     async function checkClinic() {
       try {
-        console.log('[Settings] Checking clinic status...');
-        const res = await fetch('/api/clinic', {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        
-        console.log('[Settings] API Response Status:', res.status);
+        const res = await fetch('/api/clinic');
         const data = await res.json();
-        console.log('[Settings] API Response Data:', data);
-
         if (res.ok && data.success && data.data) {
-          console.log('[Settings] Clinic exists, redirecting to subscription...');
-          router.replace('/dashboard/clinic/subscription');
-        } else if (data.requiresSetup) {
-          console.log('[Settings] Clinic setup required, showing form...');
-          setInitialLoading(false);
+          // If clinic exists, move to subscription
+          window.location.href = '/dashboard/clinic/subscription';
         } else {
-          console.log('[Settings] Unexpected response:', data);
           setInitialLoading(false);
         }
       } catch (err) {
-        console.error('[Settings] Error checking clinic:', err);
         setInitialLoading(false);
       }
     }
     checkClinic();
-  }, [router]);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -61,31 +48,25 @@ export default function ClinicSettingsPage() {
     setLoading(true);
 
     try {
-      console.log('[Settings] Submitting clinic data:', formData);
-      
       const response = await fetch('/api/clinic', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
 
-      console.log('[Settings] Save Response Status:', response.status);
       const responseData = await response.json();
-      console.log('[Settings] Save Response Data:', responseData);
 
       if (response.ok && responseData.success) {
-        console.log('[Settings] Save successful, redirecting...');
         toast.success('تم حفظ بيانات العيادة بنجاح');
-        // Use router.push for smooth navigation without page reload
-        router.push('/dashboard/clinic/subscription');
+        // FORCE REDIRECT - NO CACHE
+        setTimeout(() => {
+          window.location.href = '/dashboard/clinic/subscription';
+        }, 1000);
       } else {
-        const errorMsg = responseData.error || 'فشل حفظ البيانات';
-        console.error('[Settings] Save failed:', errorMsg);
-        toast.error(`خطأ: ${errorMsg}`);
+        toast.error(responseData.error || 'فشل حفظ البيانات');
       }
     } catch (error) {
-      console.error('[Settings] Exception during save:', error);
-      toast.error(`خطأ في الاتصال: ${error}`);
+      toast.error('خطأ في الاتصال بالخادم');
     } finally {
       setLoading(false);
     }
@@ -96,117 +77,106 @@ export default function ClinicSettingsPage() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">جاري التحميل...</p>
+          <p className="text-gray-600 font-bold">جاري التحميل...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-2xl mx-auto bg-white rounded-lg shadow p-8">
-        <h1 className="text-3xl font-bold mb-6 text-gray-900 text-right">إعدادات العيادة</h1>
-        <p className="text-gray-600 text-right mb-8">يرجى ملء بيانات عيادتك لتفعيل النظام</p>
+    <div className="min-h-screen bg-gray-50 p-6" dir="rtl">
+      <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-black text-gray-900 mb-2">إعدادات العيادة</h1>
+          <p className="text-gray-500">يرجى ملء بيانات عيادتك لتفعيل النظام والبدء</p>
+        </div>
         
-        <form onSubmit={handleSubmit} className="space-y-6 text-right" dir="rtl">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">اسم العيادة *</label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="مثال: عيادة الدكتور أحمد"
-            />
+        <form onSubmit={handleSubmit} className="space-y-6 text-right">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">اسم العيادة *</label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="مثال: عيادة الأمل"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">البريد الإلكتروني *</label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="info@clinic.com"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">رقم الهاتف *</label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="+962 7X XXX XXXX"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">المدينة *</label>
+              <input
+                type="text"
+                name="city"
+                value={formData.city}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                placeholder="عمّان"
+              />
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">البريد الإلكتروني للعيادة *</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="info@clinic.com"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">رقم الهاتف *</label>
-            <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="+962 79 1234567"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">العنوان *</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">العنوان الكامل *</label>
             <input
               type="text"
               name="address"
               value={formData.address}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="شارع الملك عبدالله"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              placeholder="الشارع، البناية، الطابق"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">المدينة *</label>
-            <input
-              type="text"
-              name="city"
-              value={formData.city}
-              onChange={handleChange}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="عمّان"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">الدولة</label>
-            <select
-              name="country"
-              value={formData.country}
-              onChange={handleChange}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="الأردن">الأردن</option>
-              <option value="السعودية">السعودية</option>
-              <option value="الإمارات">الإمارات</option>
-              <option value="مصر">مصر</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">الوصف (اختياري)</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">الوصف (اختياري)</label>
             <textarea
               name="description"
               value={formData.description}
               onChange={handleChange}
-              rows={4}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="نبذة عن عيادتك..."
+              rows={3}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              placeholder="نبذة بسيطة عن تخصص العيادة..."
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 transition"
+            className="w-full bg-blue-600 text-white py-4 rounded-xl font-black text-lg hover:bg-blue-700 disabled:bg-gray-400 transition-all shadow-lg shadow-blue-500/30"
           >
-            {loading ? 'جاري الحفظ والتفعيل...' : 'حفظ وتفعيل النظام'}
+            {loading ? 'جاري الحفظ...' : 'حفظ وتفعيل النظام'}
           </button>
         </form>
       </div>
