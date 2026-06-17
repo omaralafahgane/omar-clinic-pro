@@ -11,8 +11,6 @@ const isPublicRoute = createRouteMatcher([
   "/auth-error(.*)"
 ]);
 
-const isSettingsRoute = createRouteMatcher(["/dashboard/clinic/settings(.*)"]);
-
 export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth();
 
@@ -26,11 +24,8 @@ export default clerkMiddleware(async (auth, request) => {
     return (await auth()).redirectToSignIn();
   }
 
-  // 3. Skip ALL checks for settings page - ALWAYS ALLOW
-  if (isSettingsRoute(request)) {
-    return NextResponse.next();
-  }
-
+  // 3. ALLOW EVERYTHING ELSE - Let page-level logic handle the rest
+  // This prevents the forced redirect to settings page
   return NextResponse.next();
 });
 
