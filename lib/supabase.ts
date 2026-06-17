@@ -1,117 +1,60 @@
-// Supabase Client Configuration and Database Operations
-// Production-ready Supabase integration for Omar Clinic Pro
+// Supabase Client Configuration and Database Operations - REFACTORED
+// Production-ready Supabase integration with unified helpers and relationship joins
 
 import { createClient } from "@supabase/supabase-js";
+import { auth } from "@clerk/nextjs/server";
 
 // Initialize Supabase client (Anon key - for client-side operations)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || (process.env.NODE_ENV === "production" ? "https://placeholder.supabase.co" : undefined);
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || (process.env.NODE_ENV === "production" ? "placeholder" : undefined);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn("Missing Supabase environment variables - using mock mode");
+  console.warn("Missing Supabase environment variables - database operations may fail");
 }
 
 export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
-// ============================================================================
 // SERVICE ROLE CLIENT - For server-side operations (webhooks, etc.)
-// Bypasses RLS policies for system operations
-// ============================================================================
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
 export const supabaseAdmin = supabaseUrl && supabaseServiceRoleKey ? createClient(supabaseUrl, supabaseServiceRoleKey) : supabase;
 
 // ============================================================================
-// USERS OPERATIONS
+// UNIFIED CLINIC HELPERS - Core of the system
 // ============================================================================
-export const usersDb = {
-  create: async (data: any) => {
+export const clinicsDbHelpers = {
+  // Get the current user's clinic (replaces getDefaultClinic)
+  getCurrentClinic: async () => {
     try {
       if (!supabase) return { success: false, error: "Database not configured" };
-      const { data: user, error } = await supabase
-        .from("users")
-        .insert([data])
-        .select()
-        .single();
-      if (error) throw error;
-      return { success: true, data: user };
-    } catch (error) {
-      console.error("Error creating user:", error);
-      return { success: false, error };
-    }
-  },
+      
+      // Get current user from Clerk
+      const { userId } = await auth();
+      if (!userId) return { success: false, error: "User not authenticated" };
 
-  findById: async (id: string) => {
-    try {
-      if (!supabase) return { success: false, error: "Database not configured" };
+      // Find clinic associated with this user
       const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", id)
-        .single();
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error) {
-      console.error("Error finding user:", error);
-      return { success: false, error };
-    }
-  },
-
-  findByEmail: async (email: string) => {
-    try {
-      if (!supabase) return { success: false, error: "Database not configured" };
-      const { data, error } = await supabase
-        .from("users")
-        .select("*")
-        .eq("email", email)
-        .single();
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error) {
-      console.error("Error finding user by email:", error);
-      return { success: false, error };
-    }
-  },
-
-  update: async (id: string, data: any) => {
-    try {
-      if (!supabase) return { success: false, error: "Database not configured" };
-      const { data: user, error } = await supabase
-        .from("users")
-        .update({ ...data, updated_at: new Date().toISOString() })
-        .eq("id", id)
-        .select()
-        .single();
-      if (error) throw error;
-      return { success: true, data: user };
-    } catch (error) {
-      console.error("Error updating user:", error);
-      return { success: false, error };
-    }
-  },
-};
-
-// ============================================================================
-// CLINICS OPERATIONS
-// ============================================================================
-export const clinicsDb = {
-  create: async (data: any) => {
-    try {
-      if (!supabase) return { success: false, error: "Database not configured" };
-      const { data: clinic, error } = await supabase
         .from("clinics")
-        .insert([data])
-        .select()
+        .select("*")
+        .eq("owner_id", userId)
         .single();
-      if (error) throw error;
-      return { success: true, data: clinic };
+
+      if (error && error.code !== "PGRST116") {
+        throw error;
+      }
+
+      if (!data) {
+        return { success: false, error: "No clinic found for this user" };
+      }
+
+      return { success: true, data };
     } catch (error) {
-      console.error("Error creating clinic:", error);
+      console.error("Error getting current clinic:", error);
       return { success: false, error };
     }
   },
 
-  findById: async (id: string) => {
+  // Get clinic by ID (with full relationships)
+  getById: async (id: string) => {
     try {
       if (!supabase) return { success: false, error: "Database not configured" };
       const { data, error } = await supabase
@@ -127,6 +70,7 @@ export const clinicsDb = {
     }
   },
 
+  // Update clinic data
   update: async (id: string, data: any) => {
     try {
       if (!supabase) return { success: false, error: "Database not configured" };
@@ -144,65 +88,28 @@ export const clinicsDb = {
     }
   },
 
-  getAll: async (limit = 50, offset = 0) => {
+  // Create clinic (for new users)
+  create: async (data: any) => {
     try {
       if (!supabase) return { success: false, error: "Database not configured" };
-      const { data, error, count } = await supabase
+      const { data: clinic, error } = await supabase
         .from("clinics")
-        .select("*", { count: "exact" })
-        .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
-      if (error) throw error;
-      return { success: true, data, total: count };
-    } catch (error) {
-      console.error("Error getting all clinics:", error);
-      return { success: false, error };
-    }
-  },
-};
-
-// ============================================================================
-// DOCTORS OPERATIONS
-// ============================================================================
-export const doctorsDb = {
-  create: async (clinicId: string, data: any) => {
-    try {
-      if (!supabase) return { success: false, error: "Database not configured" };
-      const { data: doctor, error } = await supabase
-        .from("doctors")
-        .insert([{ clinic_id: clinicId, ...data }])
+        .insert([data])
         .select()
         .single();
       if (error) throw error;
-      return { success: true, data: doctor };
+      return { success: true, data: clinic };
     } catch (error) {
-      console.error("Error creating doctor:", error);
+      console.error("Error creating clinic:", error);
       return { success: false, error };
-    }
-  },
-
-  findByClinic: async (clinicId: string) => {
-    try {
-      if (!supabase) return { success: true, data: [] };
-      const { data, error } = await supabase
-        .from("doctors")
-        .select("*")
-        .eq("clinic_id", clinicId)
-        .eq("is_active", true)
-        .order("first_name", { ascending: true });
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error) {
-      console.error("Error finding clinic doctors:", error);
-      return { success: true, data: [] };
     }
   },
 };
 
 // ============================================================================
-// PATIENTS OPERATIONS
+// PATIENTS HELPERS - Unified with joins
 // ============================================================================
-export const patientsDb = {
+export const patientsDbHelpers = {
   create: async (clinicId: string, data: any) => {
     try {
       if (!supabase) return { success: false, error: "Database not configured" };
@@ -235,6 +142,7 @@ export const patientsDb = {
     }
   },
 
+  // Get all patients for a clinic (with relationships)
   findByClinic: async (clinicId: string, limit = 50, offset = 0) => {
     try {
       if (!supabase) return { success: true, data: [], total: 0 };
@@ -242,6 +150,7 @@ export const patientsDb = {
         .from("patients")
         .select("*", { count: "exact" })
         .eq("clinic_id", clinicId)
+        .eq("is_active", true)
         .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
       if (error) throw error;
@@ -268,12 +177,98 @@ export const patientsDb = {
       return { success: false, error };
     }
   },
+
+  delete: async (id: string) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { error } = await supabase
+        .from("patients")
+        .update({ is_active: false })
+        .eq("id", id);
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting patient:", error);
+      return { success: false, error };
+    }
+  },
 };
 
 // ============================================================================
-// APPOINTMENTS OPERATIONS
+// DOCTORS HELPERS - Unified with joins
 // ============================================================================
-export const appointmentsDb = {
+export const doctorsDbHelpers = {
+  create: async (clinicId: string, data: any) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { data: doctor, error } = await supabase
+        .from("doctors")
+        .insert([{ clinic_id: clinicId, ...data }])
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data: doctor };
+    } catch (error) {
+      console.error("Error creating doctor:", error);
+      return { success: false, error };
+    }
+  },
+
+  findByClinic: async (clinicId: string) => {
+    try {
+      if (!supabase) return { success: true, data: [] };
+      const { data, error } = await supabase
+        .from("doctors")
+        .select("*")
+        .eq("clinic_id", clinicId)
+        .eq("is_active", true)
+        .order("first_name", { ascending: true });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error finding clinic doctors:", error);
+      return { success: true, data: [] };
+    }
+  },
+
+  findById: async (id: string) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { data, error } = await supabase
+        .from("doctors")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error finding doctor:", error);
+      return { success: false, error };
+    }
+  },
+
+  update: async (id: string, data: any) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { data: doctor, error } = await supabase
+        .from("doctors")
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data: doctor };
+    } catch (error) {
+      console.error("Error updating doctor:", error);
+      return { success: false, error };
+    }
+  },
+};
+
+// ============================================================================
+// APPOINTMENTS HELPERS - Unified with full joins
+// ============================================================================
+export const appointmentsDbHelpers = {
   create: async (clinicId: string, data: any) => {
     try {
       if (!supabase) return { success: false, error: "Database not configured" };
@@ -290,12 +285,18 @@ export const appointmentsDb = {
     }
   },
 
+  // Get appointments with full patient and doctor data (JOINS)
   findByClinic: async (clinicId: string, filters?: any) => {
     try {
       if (!supabase) return { success: true, data: [] };
+      
       let query = supabase
         .from("appointments")
-        .select("*")
+        .select(`
+          *,
+          patients(*),
+          doctors(*)
+        `)
         .eq("clinic_id", clinicId);
 
       if (filters?.status) query = query.eq("status", filters.status);
@@ -314,6 +315,47 @@ export const appointmentsDb = {
     }
   },
 
+  findById: async (id: string) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { data, error } = await supabase
+        .from("appointments")
+        .select(`
+          *,
+          patients(*),
+          doctors(*)
+        `)
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error finding appointment:", error);
+      return { success: false, error };
+    }
+  },
+
+  // Check for appointment conflicts
+  checkConflict: async (doctorId: string, startTime: string, endTime: string) => {
+    try {
+      if (!supabase) return { success: true, hasConflict: false };
+      
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("*")
+        .eq("doctor_id", doctorId)
+        .eq("status", "scheduled")
+        .gte("end_time", startTime)
+        .lt("start_time", endTime);
+
+      if (error) throw error;
+      return { success: true, hasConflict: (data?.length || 0) > 0 };
+    } catch (error) {
+      console.error("Error checking appointment conflict:", error);
+      return { success: false, hasConflict: false };
+    }
+  },
+
   update: async (id: string, data: any) => {
     try {
       if (!supabase) return { success: false, error: "Database not configured" };
@@ -321,7 +363,11 @@ export const appointmentsDb = {
         .from("appointments")
         .update({ ...data, updated_at: new Date().toISOString() })
         .eq("id", id)
-        .select()
+        .select(`
+          *,
+          patients(*),
+          doctors(*)
+        `)
         .single();
       if (error) throw error;
       return { success: true, data: appointment };
@@ -330,12 +376,27 @@ export const appointmentsDb = {
       return { success: false, error };
     }
   },
+
+  delete: async (id: string) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { error } = await supabase
+        .from("appointments")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting appointment:", error);
+      return { success: false, error };
+    }
+  },
 };
 
 // ============================================================================
-// INVOICES OPERATIONS
+// INVOICES HELPERS - Unified with full joins
 // ============================================================================
-export const invoicesDb = {
+export const invoicesDbHelpers = {
   create: async (clinicId: string, data: any) => {
     try {
       if (!supabase) return { success: false, error: "Database not configured" };
@@ -352,20 +413,49 @@ export const invoicesDb = {
     }
   },
 
-  findByClinic: async (clinicId: string, limit = 50, offset = 0) => {
+  // Get invoices with full patient data (JOINS)
+  findByClinic: async (clinicId: string, filters?: any) => {
     try {
       if (!supabase) return { success: true, data: [], total: 0 };
-      const { data, error, count } = await supabase
+      
+      let query = supabase
         .from("invoices")
-        .select("*", { count: "exact" })
-        .eq("clinic_id", clinicId)
+        .select(`
+          *,
+          patients(*)
+        `, { count: "exact" })
+        .eq("clinic_id", clinicId);
+
+      if (filters?.status) query = query.eq("status", filters.status);
+
+      const { data, error, count } = await query
         .order("created_at", { ascending: false })
-        .range(offset, offset + limit - 1);
+        .range(0, 49);
+
       if (error) throw error;
       return { success: true, data, total: count };
     } catch (error) {
       console.error("Error finding invoices:", error);
       return { success: true, data: [], total: 0 };
+    }
+  },
+
+  findById: async (id: string) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { data, error } = await supabase
+        .from("invoices")
+        .select(`
+          *,
+          patients(*)
+        `)
+        .eq("id", id)
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error finding invoice:", error);
+      return { success: false, error };
     }
   },
 
@@ -376,7 +466,10 @@ export const invoicesDb = {
         .from("invoices")
         .update({ ...data, updated_at: new Date().toISOString() })
         .eq("id", id)
-        .select()
+        .select(`
+          *,
+          patients(*)
+        `)
         .single();
       if (error) throw error;
       return { success: true, data: invoice };
@@ -393,7 +486,10 @@ export const invoicesDb = {
         .from("invoices")
         .update({ status, updated_at: new Date().toISOString() })
         .eq("id", id)
-        .select()
+        .select(`
+          *,
+          patients(*)
+        `)
         .single();
       if (error) throw error;
       return { success: true, data };
@@ -402,12 +498,81 @@ export const invoicesDb = {
       return { success: false, error };
     }
   },
+
+  delete: async (id: string) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { error } = await supabase
+        .from("invoices")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error("Error deleting invoice:", error);
+      return { success: false, error };
+    }
+  },
 };
 
 // ============================================================================
-// ACTIVITY LOGS OPERATIONS
+// SUBSCRIPTION HELPERS - Unified
 // ============================================================================
-export const activityLogsDb = {
+export const subscriptionDbHelpers = {
+  getByClinic: async (clinicId: string) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { data, error } = await supabase
+        .from("subscriptions")
+        .select("*")
+        .eq("clinic_id", clinicId)
+        .single();
+      if (error && error.code !== "PGRST116") throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error getting subscription:", error);
+      return { success: false, error };
+    }
+  },
+
+  create: async (clinicId: string, data: any) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { data: subscription, error } = await supabase
+        .from("subscriptions")
+        .insert([{ clinic_id: clinicId, ...data }])
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data: subscription };
+    } catch (error) {
+      console.error("Error creating subscription:", error);
+      return { success: false, error };
+    }
+  },
+
+  update: async (clinicId: string, data: any) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { data: subscription, error } = await supabase
+        .from("subscriptions")
+        .update({ ...data, updated_at: new Date().toISOString() })
+        .eq("clinic_id", clinicId)
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data: subscription };
+    } catch (error) {
+      console.error("Error updating subscription:", error);
+      return { success: false, error };
+    }
+  },
+};
+
+// ============================================================================
+// ACTIVITY LOGS HELPERS
+// ============================================================================
+export const activityLogsDbHelpers = {
   log: async (data: any) => {
     try {
       if (!supabase) return { success: true };
@@ -416,172 +581,33 @@ export const activityLogsDb = {
       return { success: true };
     } catch (error) {
       console.error("Error logging activity:", error);
-      return { success: true }; // Don't fail the main operation
+      return { success: true };
     }
   },
 
   getByClinic: async (clinicId: string, limit = 100, offset = 0) => {
     try {
-      if (!supabase) return { success: true, data: [], total: 0 };
-      const { data, error, count } = await supabase
+      if (!supabase) return { success: true, data: [] };
+      const { data, error } = await supabase
         .from("activity_logs")
-        .select("*", { count: "exact" })
+        .select("*")
         .eq("clinic_id", clinicId)
         .order("created_at", { ascending: false })
         .range(offset, offset + limit - 1);
       if (error) throw error;
-      return { success: true, data, total: count };
+      return { success: true, data };
     } catch (error) {
       console.error("Error getting activity logs:", error);
-      return { success: true, data: [], total: 0 };
-    }
-  },
-};
-
-// ============================================================================
-// CLINICS OPERATIONS - HELPER FUNCTIONS
-// ============================================================================
-export const clinicsDbHelpers = {
-  /**
-   * Get default clinic - returns mock data if database unavailable
-   */
-  getDefaultClinic: async () => {
-    try {
-      if (!supabase) {
-        // Return mock clinic data
-        return { 
-          success: true, 
-          data: { 
-            id: "demo", 
-            name: "عيادة تجريبية", 
-            email: "demo@clinic.com" 
-          } 
-        };
-      }
-      
-      const { data, error } = await supabase
-        .from("clinics")
-        .select("*")
-        .eq("email", "demo@omarclinicp.com")
-        .single();
-
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error) {
-      console.error("Error getting default clinic:", error);
-      // Return mock data instead of failing
-      return { 
-        success: true, 
-        data: { 
-          id: "demo", 
-          name: "عيادة تجريبية", 
-          email: "demo@clinic.com" 
-        } 
-      };
-    }
-  },
-};
-
-// ============================================================================
-// ROLES OPERATIONS
-// ============================================================================
-export const rolesDb = {
-  getAll: async () => {
-    try {
-      if (!supabase) return { success: true, data: [] };
-      const { data, error } = await supabase
-        .from("roles")
-        .select("*")
-        .order("name");
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error) {
-      console.error("Error getting roles:", error);
       return { success: true, data: [] };
     }
   },
-
-  findByName: async (name: string) => {
-    try {
-      if (!supabase) return { success: true, data: { id: "patient", name: "patient" } };
-      const { data, error } = await supabase
-        .from("roles")
-        .select("*")
-        .eq("name", name)
-        .single();
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error) {
-      console.error("Error finding role:", error);
-      return { success: true, data: { id: "patient", name: "patient" } };
-    }
-  },
 };
 
 // ============================================================================
-// ADMIN OPERATIONS
+// BACKWARD COMPATIBILITY - Keep old names for now
 // ============================================================================
-export const adminDb = {
-  getActivationKeys: async () => {
-    try {
-      if (!supabase) return { success: true, data: [] };
-      const { data, error } = await supabase
-        .from("activation_keys")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return { success: true, data };
-    } catch (error) {
-      console.error("Error getting activation keys:", error);
-      return { success: true, data: [] };
-    }
-  },
-
-  generateKey: async (data: any) => {
-    try {
-      if (!supabase) return { success: false, error: "Database not configured" };
-      const { data: key, error } = await supabase
-        .from("activation_keys")
-        .insert([data])
-        .select()
-        .single();
-      if (error) throw error;
-      return { success: true, data: key };
-    } catch (error) {
-      console.error("Error generating key:", error);
-      return { success: false, error };
-    }
-  },
-
-  updateSubscription: async (clinicId: string, data: any) => {
-    try {
-      if (!supabase) return { success: false, error: "Database not configured" };
-      const { data: sub, error } = await supabase
-        .from("subscriptions")
-        .update({ ...data, updated_at: new Date().toISOString() })
-        .eq("clinic_id", clinicId)
-        .select()
-        .single();
-      if (error) throw error;
-      return { success: true, data: sub };
-    } catch (error) {
-      console.error("Error updating subscription:", error);
-      return { success: false, error };
-    }
-  },
-
-  setClinicStatus: async (clinicId: string, isActive: boolean) => {
-    try {
-      if (!supabase) return { success: false, error: "Database not configured" };
-      const { error } = await supabase
-        .from("clinics")
-        .update({ is_active: isActive })
-        .eq("id", clinicId);
-      if (error) throw error;
-      return { success: true };
-    } catch (error) {
-      console.error("Error setting clinic status:", error);
-      return { success: false, error };
-    }
-  },
-};
+export const patientsDb = patientsDbHelpers;
+export const appointmentsDb = appointmentsDbHelpers;
+export const invoicesDb = invoicesDbHelpers;
+export const doctorsDb = doctorsDbHelpers;
+export const clinicsDb = clinicsDbHelpers;

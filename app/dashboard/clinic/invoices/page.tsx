@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { invoicesDb, patientsDb, clinicsDbHelpers } from '@/lib/supabase';
+import { invoicesDbHelpers, patientsDbHelpers, clinicsDbHelpers } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { Modal, Alert, FormInput } from '@/components';
 
@@ -14,6 +14,7 @@ export default function InvoicesPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [clinicId, setClinicId] = useState<string>('');
 
   const [newInvoice, setNewInvoice] = useState({
     patient_id: '',
@@ -24,37 +25,43 @@ export default function InvoicesPage() {
   });
 
   useEffect(() => {
-    loadInitialData();
+    initializeData();
   }, []);
 
   useEffect(() => {
-    loadInvoices();
-  }, [filterStatus]);
+    if (clinicId) {
+      loadInvoices();
+    }
+  }, [filterStatus, clinicId]);
 
-  const loadInitialData = async () => {
+  const initializeData = async () => {
     try {
-      const clinicResult = await clinicsDbHelpers.getDefaultClinic();
-      if (clinicResult.success && clinicResult.data) {
-        const patientsRes = await patientsDb.findByClinic(clinicResult.data.id);
-        if (patientsRes.success) setPatients(patientsRes.data || []);
+      const clinicResult = await clinicsDbHelpers.getCurrentClinic();
+      if (!clinicResult.success || !clinicResult.data) {
+        throw new Error("فشل في استرجاع بيانات العيادة");
       }
-    } catch (err) {
-      console.error("Error loading initial data:", err);
+      
+      setClinicId(clinicResult.data.id);
+      
+      const patientsRes = await patientsDbHelpers.findByClinic(clinicResult.data.id);
+      if (patientsRes.success) setPatients(patientsRes.data || []);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
   const loadInvoices = async () => {
+    if (!clinicId) return;
     setLoading(true);
     try {
-      const clinicResult = await clinicsDbHelpers.getDefaultClinic();
-      if (clinicResult.success && clinicResult.data) {
-        const filters: any = {};
-        if (filterStatus !== 'all') filters.status = filterStatus;
-        
-        const result = await invoicesDb.findByClinic(clinicResult.data.id, filters);
-        if (result.success) {
-          setInvoices(result.data || []);
-        }
+      const filters: any = {};
+      if (filterStatus !== 'all') filters.status = filterStatus;
+      
+      const result = await invoicesDbHelpers.findByClinic(clinicId, filters);
+      if (result.success) {
+        setInvoices(result.data || []);
       }
     } catch (err) {
       setError("فشل في تحميل الفواتير");
@@ -75,41 +82,36 @@ export default function InvoicesPage() {
     }
 
     try {
-      const clinicResult = await clinicsDbHelpers.getDefaultClinic();
-      if (clinicResult.success && clinicResult.data) {
-        const invoiceNumber = `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-        const total = parseFloat(newInvoice.total_amount);
-        const discount = parseFloat(newInvoice.discount_amount || '0');
-        const tax = parseFloat(newInvoice.tax_amount || '0');
-        const finalAmount = total + tax - discount;
+      const invoiceNumber = `INV-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      const total = parseFloat(newInvoice.total_amount);
+      const discount = parseFloat(newInvoice.discount_amount || '0');
+      const tax = parseFloat(newInvoice.tax_amount || '0');
+      const finalAmount = total + tax - discount;
 
-        const result = await invoicesDb.create(clinicResult.data.id, {
-          ...newInvoice,
-          invoice_number: invoiceNumber,
-          total_amount: total,
-          discount_amount: discount,
-          tax_amount: tax,
-          final_amount: finalAmount,
-          status: 'pending'
-        } as any);
+      const result = await invoicesDbHelpers.create(clinicId, {
+        ...newInvoice,
+        invoice_number: invoiceNumber,
+        total_amount: total,
+        discount_amount: discount,
+        tax_amount: tax,
+        final_amount: finalAmount,
+        status: 'pending'
+      });
 
-        if (result.success) {
-          setSuccess("تم إنشاء الفاتورة بنجاح!");
-          setTimeout(() => {
-            setShowAddModal(false);
-            setSuccess(null);
-          }, 1500);
-          loadInvoices();
-          setNewInvoice({
-            patient_id: '',
-            total_amount: '',
-            discount_amount: '0',
-            tax_amount: '0',
-            notes: '',
-          });
-        } else {
-          throw new Error("فشل في حفظ الفاتورة");
-        }
+      if (result.success) {
+        setSuccess("تم إنشاء الفاتورة بنجاح!");
+        setTimeout(() => {
+          setShowAddModal(false);
+          setSuccess(null);
+        }, 1500);
+        loadInvoices();
+        setNewInvoice({
+          patient_id: '',
+          total_amount: '',
+          discount_amount: '0',
+          tax_amount: '0',
+          notes: '',
+        });
       }
     } catch (err: any) {
       setError(err.message);
@@ -120,9 +122,11 @@ export default function InvoicesPage() {
 
   const handleUpdateStatus = async (id: string, newStatus: string) => {
     try {
-      const result = await invoicesDb.updateStatus(id, newStatus);
+      const result = await invoicesDbHelpers.updateStatus(id, newStatus);
       if (result.success) {
         loadInvoices();
+        setSuccess("تم تحديث حالة الفاتورة بنجاح!");
+        setTimeout(() => setSuccess(null), 2000);
       }
     } catch (err) {
       setError("فشل في تحديث حالة الفاتورة");
@@ -151,9 +155,12 @@ export default function InvoicesPage() {
     );
   };
 
+  const totalCollected = invoices.filter(i => i.status === 'paid').reduce((acc, curr) => acc + (curr.final_amount || 0), 0);
+  const totalPending = invoices.filter(i => i.status === 'pending').reduce((acc, curr) => acc + (curr.final_amount || 0), 0);
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen" dir="rtl">
-      {/* Header Section */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">الفواتير والمالية</h1>
@@ -161,7 +168,7 @@ export default function InvoicesPage() {
         </div>
         <button 
           onClick={() => setShowAddModal(true)}
-          className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-bold rounded-xl shadow-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all transform hover:scale-105 active:scale-95"
+          className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-bold rounded-xl shadow-md text-white bg-green-600 hover:bg-green-700 transition-all transform hover:scale-105"
         >
           <svg className="ml-2 -mr-0.5 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -169,6 +176,10 @@ export default function InvoicesPage() {
           إصدار فاتورة جديدة
         </button>
       </div>
+
+      {/* Alerts */}
+      {error && <div className="mb-6"><Alert type="error" message={error} onClose={() => setError(null)} /></div>}
+      {success && <div className="mb-6"><Alert type="success" message={success} /></div>}
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -180,9 +191,7 @@ export default function InvoicesPage() {
           </div>
           <div>
             <p className="text-xs font-bold text-gray-500">إجمالي المحصل</p>
-            <p className="text-xl font-black text-gray-900">
-              {invoices.filter(i => i.status === 'paid').reduce((acc, curr) => acc + (curr.final_amount || 0), 0).toLocaleString()} ر.س
-            </p>
+            <p className="text-xl font-black text-gray-900">{totalCollected.toLocaleString()} ر.س</p>
           </div>
         </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
@@ -193,9 +202,7 @@ export default function InvoicesPage() {
           </div>
           <div>
             <p className="text-xs font-bold text-gray-500">مبالغ معلقة</p>
-            <p className="text-xl font-black text-gray-900">
-              {invoices.filter(i => i.status === 'pending').reduce((acc, curr) => acc + (curr.final_amount || 0), 0).toLocaleString()} ر.س
-            </p>
+            <p className="text-xl font-black text-gray-900">{totalPending.toLocaleString()} ر.س</p>
           </div>
         </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
@@ -211,12 +218,12 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* Filters Bar */}
+      {/* Filters */}
       <div className="mb-6 bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center">
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-bold text-gray-500 mr-1">تصفية حسب الحالة</label>
+          <label className="text-xs font-bold text-gray-500">تصفية حسب الحالة</label>
           <select
-            className="border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 sm:text-sm border py-2 px-3"
+            className="border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 border py-2 px-3"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
@@ -230,18 +237,18 @@ export default function InvoicesPage() {
         </div>
       </div>
 
-      {/* Invoices List */}
+      {/* Invoices Table */}
       <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-100">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-right">
             <thead className="bg-gray-50/50">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">رقم الفاتورة</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">المريض</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">التاريخ</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">المبلغ الإجمالي</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">الحالة</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">الإجراءات</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">رقم الفاتورة</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">المريض</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">التاريخ</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">المبلغ</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">الحالة</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">الإجراءات</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
@@ -250,32 +257,25 @@ export default function InvoicesPage() {
                   <td colSpan={6} className="px-6 py-16 text-center">
                     <div className="flex flex-col items-center gap-4">
                       <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
-                      <span className="text-gray-500 font-medium">جاري تحميل البيانات المالية...</span>
+                      <span className="text-gray-500 font-medium">جاري تحميل البيانات...</span>
                     </div>
                   </td>
                 </tr>
               ) : invoices.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-16 text-center text-gray-500">
-                    <div className="flex flex-col items-center gap-3">
-                      <div className="bg-gray-100 p-4 rounded-full">
-                        <svg className="h-10 w-10 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <span className="font-medium">لا توجد فواتير مسجلة حالياً</span>
-                    </div>
+                  <td colSpan={6} className="px-6 py-16 text-center">
+                    <span className="font-medium text-gray-500">لا توجد فواتير مسجلة حالياً</span>
                   </td>
                 </tr>
               ) : (
                 invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-blue-50/20 transition-colors group">
+                  <tr key={inv.id} className="hover:bg-blue-50/20 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-sm font-bold text-gray-900 font-mono">{inv.invoice_number}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-bold text-gray-900">{inv.patient?.first_name} {inv.patient?.last_name}</div>
-                      <div className="text-[10px] text-gray-400">{inv.patient?.phone}</div>
+                      <div className="text-sm font-bold text-gray-900">{inv.patients?.first_name} {inv.patients?.last_name}</div>
+                      <div className="text-[10px] text-gray-400">{inv.patients?.phone}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(inv.created_at).toLocaleDateString('ar-SA')}
@@ -330,65 +330,49 @@ export default function InvoicesPage() {
               >
                 <option value="">اختر المريض...</option>
                 {patients.map(p => (
-                  <option key={p.id} value={p.id}>{p.first_name} {p.last_name} - {p.phone}</option>
+                  <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
                 ))}
               </select>
             </div>
 
             <FormInput 
-              label="المبلغ الأساسي (ر.س) *" type="number" step="0.01" required
+              label="المبلغ الإجمالي *" type="number" placeholder="1000" step="0.01"
               value={newInvoice.total_amount}
               onChange={(e) => setNewInvoice({...newInvoice, total_amount: e.target.value})}
+              required
             />
+
             <FormInput 
-              label="مبلغ الخصم (ر.س)" type="number" step="0.01"
+              label="الخصم" type="number" placeholder="0" step="0.01"
               value={newInvoice.discount_amount}
               onChange={(e) => setNewInvoice({...newInvoice, discount_amount: e.target.value})}
             />
+
             <FormInput 
-              label="الضريبة (ر.س)" type="number" step="0.01"
+              label="الضريبة" type="number" placeholder="0" step="0.01"
               value={newInvoice.tax_amount}
               onChange={(e) => setNewInvoice({...newInvoice, tax_amount: e.target.value})}
             />
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-gray-700 mb-1">ملاحظات الفاتورة</label>
+              <label className="block text-xs font-bold text-gray-700 mb-1">ملاحظات</label>
               <textarea 
-                rows={2}
-                className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
-                placeholder="تفاصيل الخدمات المقدمة..."
+                placeholder="ملاحظات إضافية..."
                 value={newInvoice.notes}
                 onChange={(e) => setNewInvoice({...newInvoice, notes: e.target.value})}
-              ></textarea>
+                rows={3}
+                className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
+              />
             </div>
           </div>
 
-          <div className="flex justify-end gap-3 pt-6 border-t mt-6">
-            <button 
-              type="button" 
-              onClick={() => setShowAddModal(false)}
-              className="px-6 py-2.5 text-sm font-bold text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all"
-            >
-              إلغاء
-            </button>
-            <button 
-              type="submit"
-              disabled={isSubmitting}
-              className={cn(
-                "px-10 py-2.5 text-sm font-bold text-white bg-green-600 rounded-xl hover:bg-green-700 shadow-lg shadow-green-200 transition-all flex items-center gap-2",
-                isSubmitting && "opacity-70 cursor-not-allowed"
-              )}
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  جاري الحفظ...
-                </>
-              ) : (
-                "إصدار الفاتورة"
-              )}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-green-600 text-white font-bold py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? "جاري الحفظ..." : "إصدار الفاتورة"}
+          </button>
         </form>
       </Modal>
     </div>
