@@ -6,7 +6,7 @@ import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { DataTable } from '@/components/shared/DataTable';
-import { Users, Calendar, TrendingUp, Clock, AlertCircle } from 'lucide-react';
+import { Users, Calendar, TrendingUp, Clock, AlertCircle, Stethoscope } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 interface DashboardData {
@@ -48,7 +48,6 @@ export default function DashboardPage() {
       
       if (result.requiresSetup) {
         setRequiresSetup(true);
-        // Automatically redirect to settings after a short delay
         setTimeout(() => {
           router.push('/dashboard/clinic/settings');
         }, 3000);
@@ -87,12 +86,6 @@ export default function DashboardPage() {
           <div className="animate-pulse flex items-center justify-center gap-2 text-blue-600 font-bold">
             <span>جاري التوجيه تلقائياً...</span>
           </div>
-          <button 
-            onClick={() => router.push('/dashboard/clinic/settings')}
-            className="mt-8 w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30"
-          >
-            الذهاب للإعدادات الآن
-          </button>
         </div>
       </div>
     );
@@ -107,7 +100,7 @@ export default function DashboardPage() {
   }
 
   const monthlyRevenueData = Object.entries(data.charts.monthlyRevenue).map(([month, revenue]) => ({
-    month: month.split(' ')[0],
+    month,
     revenue,
   }));
 
@@ -126,7 +119,7 @@ export default function DashboardPage() {
         {/* Page Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-black text-gray-900">لوحة التحكم</h1>
-          <p className="text-gray-600 mt-2">مرحباً بك في نظام إدارة العيادة المتقدم</p>
+          <p className="text-gray-600 mt-2">نظرة عامة على أداء عيادتك اليوم</p>
         </div>
 
         {/* KPI Cards */}
@@ -134,7 +127,7 @@ export default function DashboardPage() {
           <KPICard
             title="إجمالي المرضى"
             value={data.stats.patients}
-            change={12}
+            change={0}
             trend="up"
             icon={<Users className="w-6 h-6" />}
             color="blue"
@@ -142,24 +135,24 @@ export default function DashboardPage() {
           <KPICard
             title="الأطباء"
             value={data.stats.doctors}
-            change={5}
+            change={0}
             trend="up"
-            icon={<Users className="w-6 h-6" />}
+            icon={<Stethoscope className="w-6 h-6" />}
             color="green"
           />
           <KPICard
             title="مواعيد اليوم"
             value={data.stats.todayAppointments}
-            change={-2}
-            trend="down"
+            change={0}
+            trend="up"
             icon={<Calendar className="w-6 h-6" />}
             color="purple"
           />
           <KPICard
-            title="الإيرادات الكلية"
+            title="الإيرادات"
             value={`${data.stats.totalRevenue.toLocaleString()}`}
             unit="د.أ"
-            change={18}
+            change={0}
             trend="up"
             icon={<TrendingUp className="w-6 h-6" />}
             color="orange"
@@ -168,115 +161,74 @@ export default function DashboardPage() {
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Revenue Chart */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-6">الإيرادات الشهرية</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={monthlyRevenueData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="revenue"
-                  stroke="#2563eb"
-                  strokeWidth={2}
-                  dot={{ fill: '#2563eb', r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            <h3 className="text-lg font-bold text-gray-900 mb-6">الإيرادات</h3>
+            {monthlyRevenueData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={monthlyRevenueData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="month" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="revenue" stroke="#2563eb" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-400">لا توجد بيانات كافية للعرض</div>
+            )}
           </div>
 
-          {/* Appointments Chart */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-6">المواعيد الأسبوعية</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={weeklyAppointmentsData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="day" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#fff',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                  }}
-                />
-                <Bar dataKey="appointments" fill="#10b981" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <h3 className="text-lg font-bold text-gray-900 mb-6">المواعيد</h3>
+            {weeklyAppointmentsData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={weeklyAppointmentsData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="day" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip />
+                  <Bar dataKey="appointments" fill="#10b981" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-gray-400">لا توجد بيانات كافية للعرض</div>
+            )}
           </div>
         </div>
 
         {/* Data Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Upcoming Appointments */}
-          <DataTable
-            title="المواعيد القادمة"
-            columns={[
-              { key: 'id', label: 'الرقم', width: '80px' },
-              {
-                key: 'patient' as any,
-                label: 'المريض',
-                render: (val, row) => `${row.patient?.first_name} ${row.patient?.last_name}`,
-              },
-              {
-                key: 'start_time' as any,
-                label: 'الوقت',
-                render: (val) => new Date(val).toLocaleTimeString('ar-SA'),
-              },
-              {
-                key: 'status' as any,
-                label: 'الحالة',
-                render: () => <span className="px-3 py-1 bg-green-100 text-green-600 rounded-full text-xs font-bold">مؤكد</span>,
-              },
-            ]}
-            data={data.upcomingAppointments || []}
-            searchable={true}
-            paginated={true}
-            pageSize={5}
-          />
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">المواعيد القادمة</h3>
+            {data.upcomingAppointments.length > 0 ? (
+              <DataTable
+                columns={[
+                  { key: 'patient', label: 'المريض', render: (val: any) => `${val.first_name} ${val.last_name}` },
+                  { key: 'start_time', label: 'الوقت', render: (val: string) => new Date(val).toLocaleTimeString('ar-JO') },
+                  { key: 'status', label: 'الحالة' }
+                ]}
+                data={data.upcomingAppointments}
+              />
+            ) : (
+              <div className="py-8 text-center text-gray-400">لا توجد مواعيد قادمة</div>
+            )}
+          </div>
 
-          {/* Recent Invoices */}
-          <DataTable
-            title="الفواتير الأخيرة"
-            columns={[
-              { key: 'id', label: 'رقم الفاتورة', width: '100px' },
-              {
-                key: 'patient' as any,
-                label: 'المريض',
-                render: (val, row) => `${row.patient?.first_name} ${row.patient?.last_name}`,
-              },
-              { key: 'total_amount' as any, label: 'المبلغ', render: (val) => `${val} د.أ` },
-              {
-                key: 'status' as any,
-                label: 'الحالة',
-                render: (val) => (
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      val === 'paid'
-                        ? 'bg-green-100 text-green-600'
-                        : 'bg-yellow-100 text-yellow-600'
-                    }`}
-                  >
-                    {val === 'paid' ? 'مدفوعة' : 'معلقة'}
-                  </span>
-                ),
-              },
-            ]}
-            data={data.recentInvoices || []}
-            searchable={true}
-            paginated={true}
-            pageSize={5}
-          />
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">الفواتير الأخيرة</h3>
+            {data.recentInvoices.length > 0 ? (
+              <DataTable
+                columns={[
+                  { key: 'patient', label: 'المريض', render: (val: any) => `${val.first_name} ${val.last_name}` },
+                  { key: 'total_amount', label: 'المبلغ', render: (val: number) => `${val} د.أ` },
+                  { key: 'status', label: 'الحالة' }
+                ]}
+                data={data.recentInvoices}
+              />
+            ) : (
+              <div className="py-8 text-center text-gray-400">لا توجد فواتير حديثة</div>
+            )}
+          </div>
         </div>
       </main>
     </div>
