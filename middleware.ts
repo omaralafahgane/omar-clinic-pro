@@ -1,7 +1,12 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { supabaseAdmin } from "./lib/supabase"; // Import supabaseAdmin for server-side operations
-import { ROLES } from "./lib/roles"; // Import roles
+import { createClient } from "@supabase/supabase-js";
+import { ROLES } from "./lib/roles";
 import { NextResponse } from "next/server";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+);
 
 const isPublicRoute = createRouteMatcher([
   "/",
@@ -9,13 +14,14 @@ const isPublicRoute = createRouteMatcher([
   "/pricing(.*)",
   "/contact(.*)",
   "/api/webhooks/(.*)",
+  "/api/auth/check-email(.*)",
   "/auth-error(.*)"
 ]);
 
 const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);
 
 export default clerkMiddleware(async (auth, request) => {
-  const { userId, sessionClaims } = await auth();
+  const { userId } = await auth();
 
   // 1. If public route, allow access
   if (isPublicRoute(request)) {
@@ -27,39 +33,37 @@ export default clerkMiddleware(async (auth, request) => {
     return (await auth()).redirectToSignIn();
   }
 
-  // 3. Special handling for dashboard routes (Subscription & Role checks)
+  // 3. Role handling for dashboard
   if (isDashboardRoute(request)) {
-    // Note: In a real middleware, we would fetch the user's status from a fast cache or DB
-    // For this implementation, we allow the request to proceed but the pages/API will handle
-    // the specific "requires payment" or "no permission" states to avoid slow middleware.
-    
-    // Fetch user's role from Supabase (or sessionClaims if available)
-    let userRole = sessionClaims?.role as string || ROLES.RECEPTIONIST; // Default to receptionist if no role
+    // Check if user exists in our DB
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("role")
+      .eq("id", userId)
+      .maybeSingle();
 
-    if (userId && !sessionClaims?.role) {
-      const { data: user, error } = await supabaseAdmin
+    let userRole = user?.role;
+
+    // If user doesn't exist in our DB yet, create them as 'owner'
+    // This happens when they first sign up via Clerk
+    if (!user && !error) {
+      const { data: newUser } = await supabase
         .from("users")
+        .insert([{ id: userId, role: ROLES.OWNER }])
         .select("role")
-        .eq("id", userId)
         .single();
-
-      if (user && user.role) {
-        userRole = user.role;
-      } else if (error) {
-        console.error("Error fetching user role in middleware:", error);
-      }
+      userRole = newUser?.role;
     }
 
-    // Attach the user's role to the request headers for downstream API/page access
+    // Default to receptionist if still no role found
+    const finalRole = userRole || ROLES.RECEPTIONIST;
+
     const response = NextResponse.next();
-    response.headers.set("x-user-role", userRole);
+    response.headers.set("x-user-role", finalRole);
     return response;
   }
 
-  // Default role for other routes if not set above
-  const response = NextResponse.next();
-  response.headers.set("x-user-role", sessionClaims?.role as string || ROLES.RECEPTIONIST);
-  return response;
+  return NextResponse.next();
 });
 
 export const config = {
