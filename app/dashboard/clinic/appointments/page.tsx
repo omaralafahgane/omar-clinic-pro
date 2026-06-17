@@ -11,14 +11,19 @@ export default function AppointmentsPage() {
   const [doctors, setDoctors] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [clinicId, setClinicId] = useState<string>('');
+  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
+  const [newStatus, setNewStatus] = useState<string>('');
 
-  const [newAppointment, setNewAppointment] = useState({
+  const [formData, setFormData] = useState({
     patient_id: '',
     doctor_id: '',
     start_time: '',
@@ -79,18 +84,33 @@ export default function AppointmentsPage() {
     }
   };
 
+  const checkConflict = async (doctorId: string, startTime: string, endTime: string, excludeId?: string) => {
+    try {
+      const result = await appointmentsDbHelpers.checkConflict(doctorId, startTime, endTime);
+      if (result.success && result.hasConflict) {
+        if (excludeId && result.conflictId === excludeId) {
+          return false;
+        }
+        return true;
+      }
+      return false;
+    } catch (err) {
+      return false;
+    }
+  };
+
   const handleAddAppointment = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
 
-    if (!newAppointment.patient_id || !newAppointment.doctor_id || !newAppointment.start_time || !newAppointment.end_time) {
+    if (!formData.patient_id || !formData.doctor_id || !formData.start_time || !formData.end_time) {
       setError("يرجى ملء جميع الحقول المطلوبة");
       setIsSubmitting(false);
       return;
     }
 
-    if (new Date(newAppointment.start_time) >= new Date(newAppointment.end_time)) {
+    if (new Date(formData.start_time) >= new Date(formData.end_time)) {
       setError("وقت النهاية يجب أن يكون بعد وقت البداية");
       setIsSubmitting(false);
       return;
@@ -98,23 +118,14 @@ export default function AppointmentsPage() {
 
     try {
       // Check for conflicts
-      const conflictRes = await appointmentsDbHelpers.checkConflict(
-        newAppointment.doctor_id,
-        new Date(newAppointment.start_time).toISOString(),
-        new Date(newAppointment.end_time).toISOString()
-      );
-
-      if (conflictRes.success && conflictRes.hasConflict) {
-        throw new Error("يوجد تداخل في المواعيد لهذا الطبيب في هذا الوقت");
+      const hasConflict = await checkConflict(formData.doctor_id, formData.start_time, formData.end_time);
+      if (hasConflict) {
+        setError("الطبيب مشغول في هذا الوقت. يرجى اختيار وقت آخر");
+        setIsSubmitting(false);
+        return;
       }
 
-      const appointmentNumber = `APT-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      
-      const result = await appointmentsDbHelpers.create(clinicId, {
-        ...newAppointment,
-        appointment_number: appointmentNumber
-      });
-
+      const result = await appointmentsDbHelpers.create(clinicId, formData);
       if (result.success) {
         setSuccess("تم حجز الموعد بنجاح!");
         setTimeout(() => {
@@ -122,21 +133,126 @@ export default function AppointmentsPage() {
           setSuccess(null);
         }, 1500);
         loadAppointments();
-        setNewAppointment({
-          patient_id: '',
-          doctor_id: '',
-          start_time: '',
-          end_time: '',
-          reason_for_visit: '',
-          appointment_type: 'in-person',
-          notes: '',
-        });
+        resetForm();
       }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleEditAppointment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
+
+    if (!formData.patient_id || !formData.doctor_id || !formData.start_time || !formData.end_time) {
+      setError("يرجى ملء جميع الحقول المطلوبة");
+      setIsSubmitting(false);
+      return;
+    }
+
+    try {
+      // Check for conflicts (excluding current appointment)
+      const hasConflict = await checkConflict(formData.doctor_id, formData.start_time, formData.end_time, selectedAppointment.id);
+      if (hasConflict) {
+        setError("الطبيب مشغول في هذا الوقت. يرجى اختيار وقت آخر");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const result = await appointmentsDbHelpers.update(selectedAppointment.id, formData);
+      if (result.success) {
+        setSuccess("تم تحديث الموعد بنجاح!");
+        setTimeout(() => {
+          setShowEditModal(false);
+          setSuccess(null);
+        }, 1500);
+        loadAppointments();
+        resetForm();
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDeleteAppointment = async () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const result = await appointmentsDbHelpers.delete(selectedAppointment.id);
+      if (result.success) {
+        setSuccess("تم حذف الموعد بنجاح!");
+        setTimeout(() => {
+          setShowDeleteConfirm(false);
+          setSuccess(null);
+        }, 1500);
+        loadAppointments();
+        setSelectedAppointment(null);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleChangeStatus = async () => {
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const result = await appointmentsDbHelpers.update(selectedAppointment.id, { status: newStatus });
+      if (result.success) {
+        setSuccess("تم تحديث حالة الموعد بنجاح!");
+        setTimeout(() => {
+          setShowStatusModal(false);
+          setSuccess(null);
+        }, 1500);
+        loadAppointments();
+        setSelectedAppointment(null);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openEditModal = (appointment: any) => {
+    setSelectedAppointment(appointment);
+    setFormData({
+      patient_id: appointment.patient_id,
+      doctor_id: appointment.doctor_id,
+      start_time: appointment.start_time,
+      end_time: appointment.end_time,
+      reason_for_visit: appointment.reason_for_visit || '',
+      appointment_type: appointment.appointment_type || 'in-person',
+      notes: appointment.notes || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const openStatusModal = (appointment: any) => {
+    setSelectedAppointment(appointment);
+    setNewStatus(appointment.status);
+    setShowStatusModal(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      patient_id: '',
+      doctor_id: '',
+      start_time: '',
+      end_time: '',
+      reason_for_visit: '',
+      appointment_type: 'in-person',
+      notes: '',
+    });
   };
 
   const getStatusBadge = (status: string) => {
@@ -170,7 +286,10 @@ export default function AppointmentsPage() {
           <p className="mt-1 text-sm text-gray-500">تنظيم وإدارة مواعيد المرضى والأطباء</p>
         </div>
         <button 
-          onClick={() => setShowAddModal(true)}
+          onClick={() => {
+            resetForm();
+            setShowAddModal(true);
+          }}
           className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-bold rounded-xl shadow-md text-white bg-blue-600 hover:bg-blue-700 transition-all transform hover:scale-105"
         >
           <svg className="ml-2 -mr-0.5 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -270,7 +389,6 @@ export default function AppointmentsPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-700 font-medium">د. {apt.doctors?.first_name} {apt.doctors?.last_name}</div>
-                      <div className="text-[10px] text-gray-400">{apt.doctors?.specialization}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">
                       {apt.reason_for_visit}
@@ -279,9 +397,28 @@ export default function AppointmentsPage() {
                       {getStatusBadge(apt.status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex gap-4">
-                        <button className="text-blue-600 hover:text-blue-800 transition-all">تعديل</button>
-                        <button className="text-gray-400 hover:text-gray-600 transition-all">التفاصيل</button>
+                      <div className="flex gap-3">
+                        <button 
+                          onClick={() => openStatusModal(apt)}
+                          className="text-green-600 hover:text-green-800 transition-all font-bold text-xs"
+                        >
+                          تغيير الحالة
+                        </button>
+                        <button 
+                          onClick={() => openEditModal(apt)}
+                          className="text-blue-600 hover:text-blue-800 transition-all font-bold text-xs"
+                        >
+                          تعديل
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setSelectedAppointment(apt);
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="text-red-600 hover:text-red-800 transition-all font-bold text-xs"
+                        >
+                          حذف
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -308,8 +445,8 @@ export default function AppointmentsPage() {
               <label className="block text-xs font-bold text-gray-700 mb-1">المريض *</label>
               <select 
                 className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
-                value={newAppointment.patient_id}
-                onChange={(e) => setNewAppointment({...newAppointment, patient_id: e.target.value})}
+                value={formData.patient_id}
+                onChange={(e) => setFormData({...formData, patient_id: e.target.value})}
                 required
               >
                 <option value="">اختر المريض...</option>
@@ -323,8 +460,8 @@ export default function AppointmentsPage() {
               <label className="block text-xs font-bold text-gray-700 mb-1">الطبيب *</label>
               <select 
                 className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
-                value={newAppointment.doctor_id}
-                onChange={(e) => setNewAppointment({...newAppointment, doctor_id: e.target.value})}
+                value={formData.doctor_id}
+                onChange={(e) => setFormData({...formData, doctor_id: e.target.value})}
                 required
               >
                 <option value="">اختر الطبيب...</option>
@@ -338,43 +475,42 @@ export default function AppointmentsPage() {
               <label className="block text-xs font-bold text-gray-700 mb-1">نوع الموعد *</label>
               <select 
                 className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
-                value={newAppointment.appointment_type}
-                onChange={(e) => setNewAppointment({...newAppointment, appointment_type: e.target.value})}
+                value={formData.appointment_type}
+                onChange={(e) => setFormData({...formData, appointment_type: e.target.value})}
               >
                 <option value="in-person">حضوري</option>
-                <option value="online">عبر الإنترنت</option>
-                <option value="phone">هاتفي</option>
+                <option value="online">أونلاين</option>
               </select>
             </div>
 
             <FormInput 
               label="وقت البداية *" type="datetime-local"
-              value={newAppointment.start_time}
-              onChange={(e) => setNewAppointment({...newAppointment, start_time: e.target.value})}
+              value={formData.start_time}
+              onChange={(e) => setFormData({...formData, start_time: e.target.value})}
               required
             />
 
             <FormInput 
               label="وقت النهاية *" type="datetime-local"
-              value={newAppointment.end_time}
-              onChange={(e) => setNewAppointment({...newAppointment, end_time: e.target.value})}
+              value={formData.end_time}
+              onChange={(e) => setFormData({...formData, end_time: e.target.value})}
               required
             />
 
             <div className="md:col-span-2">
               <FormInput 
-                label="سبب الزيارة" placeholder="فحص دوري، علاج، استشارة..."
-                value={newAppointment.reason_for_visit}
-                onChange={(e) => setNewAppointment({...newAppointment, reason_for_visit: e.target.value})}
+                label="سبب الزيارة" placeholder="الفحص الدوري، علاج..."
+                value={formData.reason_for_visit}
+                onChange={(e) => setFormData({...formData, reason_for_visit: e.target.value})}
               />
             </div>
 
             <div className="md:col-span-2">
               <label className="block text-xs font-bold text-gray-700 mb-1">ملاحظات</label>
               <textarea 
-                placeholder="أي ملاحظات إضافية..."
-                value={newAppointment.notes}
-                onChange={(e) => setNewAppointment({...newAppointment, notes: e.target.value})}
+                placeholder="ملاحظات إضافية..."
+                value={formData.notes}
+                onChange={(e) => setFormData({...formData, notes: e.target.value})}
                 rows={3}
                 className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
               />
@@ -389,6 +525,169 @@ export default function AppointmentsPage() {
             {isSubmitting ? "جاري الحفظ..." : "حجز الموعد"}
           </button>
         </form>
+      </Modal>
+
+      {/* Edit Appointment Modal */}
+      <Modal 
+        isOpen={showEditModal} 
+        onClose={() => setShowEditModal(false)} 
+        title="تعديل الموعد"
+        size="lg"
+      >
+        {error && <div className="mb-4"><Alert type="error" message={error} onClose={() => setError(null)} /></div>}
+        
+        <form onSubmit={handleEditAppointment} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-gray-700 mb-1">المريض *</label>
+              <select 
+                className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
+                value={formData.patient_id}
+                onChange={(e) => setFormData({...formData, patient_id: e.target.value})}
+                required
+              >
+                <option value="">اختر المريض...</option>
+                {patients.map(p => (
+                  <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">الطبيب *</label>
+              <select 
+                className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
+                value={formData.doctor_id}
+                onChange={(e) => setFormData({...formData, doctor_id: e.target.value})}
+                required
+              >
+                <option value="">اختر الطبيب...</option>
+                {doctors.map(d => (
+                  <option key={d.id} value={d.id}>د. {d.first_name} {d.last_name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1">نوع الموعد *</label>
+              <select 
+                className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
+                value={formData.appointment_type}
+                onChange={(e) => setFormData({...formData, appointment_type: e.target.value})}
+              >
+                <option value="in-person">حضوري</option>
+                <option value="online">أونلاين</option>
+              </select>
+            </div>
+
+            <FormInput 
+              label="وقت البداية *" type="datetime-local"
+              value={formData.start_time}
+              onChange={(e) => setFormData({...formData, start_time: e.target.value})}
+              required
+            />
+
+            <FormInput 
+              label="وقت النهاية *" type="datetime-local"
+              value={formData.end_time}
+              onChange={(e) => setFormData({...formData, end_time: e.target.value})}
+              required
+            />
+
+            <div className="md:col-span-2">
+              <FormInput 
+                label="سبب الزيارة" placeholder="الفحص الدوري، علاج..."
+                value={formData.reason_for_visit}
+                onChange={(e) => setFormData({...formData, reason_for_visit: e.target.value})}
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-gray-700 mb-1">ملاحظات</label>
+              <textarea 
+                placeholder="ملاحظات إضافية..."
+                value={formData.notes}
+                onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                rows={3}
+                className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? "جاري الحفظ..." : "تحديث الموعد"}
+          </button>
+        </form>
+      </Modal>
+
+      {/* Status Change Modal */}
+      <Modal 
+        isOpen={showStatusModal} 
+        onClose={() => setShowStatusModal(false)} 
+        title="تغيير حالة الموعد"
+      >
+        {error && <div className="mb-4"><Alert type="error" message={error} onClose={() => setError(null)} /></div>}
+        
+        <div className="space-y-6">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-2">الحالة الجديدة *</label>
+            <select 
+              className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value)}
+            >
+              <option value="scheduled">مجدول</option>
+              <option value="confirmed">مؤكد</option>
+              <option value="in-progress">قيد التنفيذ</option>
+              <option value="completed">مكتمل</option>
+              <option value="cancelled">ملغي</option>
+            </select>
+          </div>
+
+          <button
+            onClick={handleChangeStatus}
+            disabled={isSubmitting}
+            className="w-full bg-green-600 text-white font-bold py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? "جاري التحديث..." : "تحديث الحالة"}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal 
+        isOpen={showDeleteConfirm} 
+        onClose={() => setShowDeleteConfirm(false)} 
+        title="تأكيد الحذف"
+      >
+        {error && <div className="mb-4"><Alert type="error" message={error} onClose={() => setError(null)} /></div>}
+        
+        <div className="space-y-6">
+          <p className="text-gray-600">
+            هل أنت متأكد من حذف هذا الموعد؟
+            <br />
+            <span className="text-red-600 text-sm">هذا الإجراء لا يمكن التراجع عنه.</span>
+          </p>
+          <div className="flex gap-4">
+            <button
+              onClick={handleDeleteAppointment}
+              disabled={isSubmitting}
+              className="flex-1 bg-red-600 text-white font-bold py-2.5 rounded-lg hover:bg-red-700 disabled:opacity-50 transition-all"
+            >
+              {isSubmitting ? "جاري الحذف..." : "حذف نهائياً"}
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(false)}
+              className="flex-1 bg-gray-300 text-gray-700 font-bold py-2.5 rounded-lg hover:bg-gray-400 transition-all"
+            >
+              إلغاء
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );
