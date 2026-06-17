@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
+import { toast } from 'sonner';
 
 export default function ClinicSettingsPage() {
   const router = useRouter();
@@ -22,15 +23,28 @@ export default function ClinicSettingsPage() {
   useEffect(() => {
     async function checkClinic() {
       try {
-        const res = await fetch('/api/clinic');
+        console.log('[Settings] Checking clinic status...');
+        const res = await fetch('/api/clinic', {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        console.log('[Settings] API Response Status:', res.status);
         const data = await res.json();
-        if (data.success && data.data) {
-          // If clinic already exists, redirect to subscription
+        console.log('[Settings] API Response Data:', data);
+
+        if (res.ok && data.success && data.data) {
+          console.log('[Settings] Clinic exists, redirecting to subscription...');
           router.replace('/dashboard/clinic/subscription');
+        } else if (data.requiresSetup) {
+          console.log('[Settings] Clinic setup required, showing form...');
+          setInitialLoading(false);
+        } else {
+          console.log('[Settings] Unexpected response:', data);
+          setInitialLoading(false);
         }
       } catch (err) {
-        console.error(err);
-      } finally {
+        console.error('[Settings] Error checking clinic:', err);
         setInitialLoading(false);
       }
     }
@@ -47,32 +61,52 @@ export default function ClinicSettingsPage() {
     setLoading(true);
 
     try {
+      console.log('[Settings] Submitting clinic data:', formData);
+      
       const response = await fetch('/api/clinic', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
 
-      if (response.ok) {
-        // Success: Hard redirect to clear any middleware state
+      console.log('[Settings] Save Response Status:', response.status);
+      const responseData = await response.json();
+      console.log('[Settings] Save Response Data:', responseData);
+
+      if (response.ok && responseData.success) {
+        console.log('[Settings] Save successful, redirecting...');
+        toast.success('تم حفظ بيانات العيادة بنجاح');
+        // Use hard redirect to clear any cached state
         window.location.href = '/dashboard/clinic/subscription';
       } else {
-        const error = await response.json();
-        alert(`خطأ: ${error.error || 'فشل حفظ البيانات'}`);
+        const errorMsg = responseData.error || 'فشل حفظ البيانات';
+        console.error('[Settings] Save failed:', errorMsg);
+        toast.error(`خطأ: ${errorMsg}`);
       }
     } catch (error) {
-      alert(`خطأ في الاتصال: ${error}`);
+      console.error('[Settings] Exception during save:', error);
+      toast.error(`خطأ في الاتصال: ${error}`);
     } finally {
       setLoading(false);
     }
   };
 
-  if (initialLoading) return <div className="flex items-center justify-center min-h-screen">جاري التحميل...</div>;
+  if (initialLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">جاري التحميل...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow p-8">
         <h1 className="text-3xl font-bold mb-6 text-gray-900 text-right">إعدادات العيادة</h1>
+        <p className="text-gray-600 text-right mb-8">يرجى ملء بيانات عيادتك لتفعيل النظام</p>
         
         <form onSubmit={handleSubmit} className="space-y-6 text-right" dir="rtl">
           <div>
