@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: clinic });
   } catch (error: any) {
-    return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
+    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
 
@@ -35,12 +35,13 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { name, email, phone, address, city, country, description } = body;
 
-    // 1. Create or update the clinic
+    // 1. Get user's current clinic_id
     const { data: user } = await supabase.from("users").select("clinic_id").eq("id", userId).maybeSingle();
     let clinicId = user?.clinic_id;
 
     let finalClinic;
     if (clinicId) {
+      // UPDATE
       const { data, error } = await supabase
         .from("clinics")
         .update({ name, email, phone, address, city, country, description, updated_at: new Date().toISOString() })
@@ -49,6 +50,7 @@ export async function PATCH(request: NextRequest) {
       if (error) throw error;
       finalClinic = data;
     } else {
+      // CREATE NEW
       const { data, error } = await supabase
         .from("clinics")
         .insert([{ name, email, phone, address, city, country: country || "الأردن", description, is_active: true }])
@@ -56,8 +58,16 @@ export async function PATCH(request: NextRequest) {
       if (error) throw error;
       finalClinic = data;
       
-      // Link to user
-      await supabase.from("users").upsert({ id: userId, clinic_id: finalClinic.id, role: 'owner' });
+      // LINK TO USER
+      const { error: linkError } = await supabase
+        .from("users")
+        .update({ clinic_id: finalClinic.id, role: 'owner' })
+        .eq("id", userId);
+      
+      if (linkError) {
+        // Try upsert if update fails
+        await supabase.from("users").upsert({ id: userId, clinic_id: finalClinic.id, role: 'owner' });
+      }
     }
 
     return NextResponse.json({ success: true, data: finalClinic });
