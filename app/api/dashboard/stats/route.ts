@@ -19,23 +19,27 @@ export async function GET(request: NextRequest) {
     const { data: user } = await supabase
       .from('users')
       .select('clinic_id')
-      .eq('clerk_id', userId)
+      .eq('id', userId)
       .single();
 
     if (!user?.clinic_id) {
-      return NextResponse.json({ error: 'No clinic found' }, { status: 404 });
+      return NextResponse.json({ 
+        success: false,
+        error: 'No clinic found',
+        requiresSetup: true 
+      }, { status: 200 });
     }
 
     const clinicId = user.clinic_id;
 
     // Get clinic subscription plan
-    const { data: clinic } = await supabase
-      .from('clinics')
-      .select('subscription_plan, name')
-      .eq('id', clinicId)
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('plan')
+      .eq('clinic_id', clinicId)
       .single();
 
-    const plan = clinic?.subscription_plan || 'basic';
+    const plan = subscription?.plan || 'basic';
 
     // Define plan limits
     const planLimits: any = {
@@ -59,12 +63,17 @@ export async function GET(request: NextRequest) {
       .eq('clinic_id', clinicId);
 
     // Count today's appointments
-    const today = new Date().toISOString().split('T')[0];
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+    
     const { count: todayAppointmentsCount } = await supabase
       .from('appointments')
       .select('*', { count: 'exact', head: true })
       .eq('clinic_id', clinicId)
-      .eq('appointment_date', today);
+      .gte('start_time', todayStart.toISOString())
+      .lte('start_time', todayEnd.toISOString());
 
     // Get monthly revenue (last 12 months)
     const monthlyRevenue: any = {};
@@ -80,13 +89,13 @@ export async function GET(request: NextRequest) {
 
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('final_amount')
+        .select('total_amount')
         .eq('clinic_id', clinicId)
-        .eq('payment_status', 'paid')
+        .eq('status', 'paid')
         .gte('created_at', startDate)
         .lte('created_at', endDate);
 
-      monthlyRevenue[monthYear] = invoices?.reduce((sum: number, inv: any) => sum + (inv.final_amount || 0), 0) || 0;
+      monthlyRevenue[monthYear] = invoices?.reduce((sum: number, inv: any) => sum + (inv.total_amount || 0), 0) || 0;
     }
 
     // Get weekly appointments (last 7 days)
@@ -96,13 +105,17 @@ export async function GET(request: NextRequest) {
       date.setDate(date.getDate() - i);
       const day = date.toLocaleString('en-US', { weekday: 'short' });
 
-      const dateStr = date.toISOString().split('T')[0];
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
 
       const { count } = await supabase
         .from('appointments')
         .select('*', { count: 'exact', head: true })
         .eq('clinic_id', clinicId)
-        .eq('appointment_date', dateStr);
+        .gte('start_time', dayStart.toISOString())
+        .lte('start_time', dayEnd.toISOString());
 
       weeklyAppointments[day] = count || 0;
     }
@@ -110,20 +123,20 @@ export async function GET(request: NextRequest) {
     // Get total revenue
     const { data: allInvoices } = await supabase
       .from('invoices')
-      .select('final_amount')
+      .select('total_amount')
       .eq('clinic_id', clinicId)
-      .eq('payment_status', 'paid');
+      .eq('status', 'paid');
 
-    const totalRevenue = allInvoices?.reduce((sum: number, inv: any) => sum + (inv.final_amount || 0), 0) || 0;
+    const totalRevenue = allInvoices?.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0) || 0;
 
     // Get pending revenue
     const { data: pendingInvoices } = await supabase
       .from('invoices')
-      .select('final_amount')
+      .select('total_amount')
       .eq('clinic_id', clinicId)
-      .in('payment_status', ['unpaid', 'partial']);
+      .in('status', ['sent', 'partially_paid', 'overdue']);
 
-    const pendingRevenue = pendingInvoices?.reduce((sum: number, inv: any) => sum + (inv.final_amount || 0), 0) || 0;
+    const pendingRevenue = pendingInvoices?.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0) || 0;
 
     return NextResponse.json({
       success: true,

@@ -1,3 +1,4 @@
 export { Modal } from './Modal';
 export { Alert } from './Alert';
-export { FormInput } from './FormInput';
+export * from './FormElements';
+export { MedicalFileUpload } from './MedicalFileUpload';

@@ -32,11 +32,29 @@ export async function GET() {
       );
     }
 
+    // Find user first to get their clinic_id
+    const { data: user, error: userError } = await supabase
+      .from("users")
+      .select("clinic_id")
+      .eq("id", userId)
+      .single();
+
+    if (userError || !user?.clinic_id) {
+      return NextResponse.json(
+        { 
+          error: "CLINIC_SETUP_REQUIRED",
+          message: "يرجى إكمال بيانات العيادة",
+          requiresSetup: true
+        },
+        { status: 206 }
+      );
+    }
+
     // Query clinics table for this user
     const { data, error } = await supabase
       .from("clinics")
       .select("*")
-      .eq("owner_id", userId)
+      .eq("id", user.clinic_id)
       .maybeSingle();
 
     if (error) {
@@ -97,12 +115,23 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    // Find user first to get their clinic_id
+    const { data: userRecord, error: userError } = await supabase
+      .from("users")
+      .select("clinic_id")
+      .eq("id", userId)
+      .single();
+
+    const clinicId = userRecord?.clinic_id;
+
     // Check if clinic exists for this user
-    const { data: existingClinic, error: checkError } = await supabase
-      .from("clinics")
-      .select("id")
-      .eq("owner_id", userId)
-      .maybeSingle();
+    const { data: existingClinic, error: checkError } = clinicId 
+      ? await supabase
+          .from("clinics")
+          .select("id")
+          .eq("id", clinicId)
+          .maybeSingle()
+      : { data: null, error: null };
 
     if (checkError) {
       console.error("Error checking clinic:", checkError);
@@ -148,13 +177,12 @@ export async function PATCH(req: NextRequest) {
         .from("clinics")
         .insert([
           {
-            owner_id: userId,
             name,
             email: email || user?.primaryEmailAddress?.emailAddress || "",
             phone: phone || "",
             address: address || "",
             city: city || "",
-            country: country || "SA",
+            country: country || "JO",
             website: website || "",
             description: description || "",
             is_active: true,
@@ -164,6 +192,14 @@ export async function PATCH(req: NextRequest) {
         ])
         .select()
         .single();
+
+      if (!createError && newClinic) {
+        // Update user with new clinic_id
+        await supabase
+          .from("users")
+          .update({ clinic_id: newClinic.id })
+          .eq("id", userId);
+      }
 
       if (createError) {
         console.error("Create error:", createError);

@@ -1,14 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { formatCurrency, formatDate } from '@/lib/utils';
 
 interface SubscriptionData {
   currentPlan: string;
-  status: 'active' | 'cancelled' | 'expired';
+  status: string;
   renewalDate: string;
-  shopifySubscriptionId: string;
+  price: number;
+  currency: string;
+  billingCycle: string;
   billingHistory: Array<{
     id: string;
+    number: string;
     amount: number;
     date: string;
     status: string;
@@ -40,35 +44,14 @@ export default function SubscriptionPage() {
     }
   };
 
-  const handleUpgrade = async () => {
-    try {
-      const response = await fetch('/api/subscription/upgrade', { method: 'POST' });
-      if (!response.ok) throw new Error('Failed to upgrade');
-      
-      const result = await response.json();
-      window.location.href = result.redirectUrl;
-    } catch (err) {
-      alert('فشل في الترقية');
-    }
-  };
-
-  const handleCancel = async () => {
-    if (!confirm('هل أنت متأكد من إلغاء الاشتراك؟')) return;
-    
-    try {
-      const response = await fetch('/api/subscription/cancel', { method: 'POST' });
-      if (!response.ok) throw new Error('Failed to cancel');
-      
-      fetchSubscriptionData();
-      alert('تم إلغاء الاشتراك بنجاح');
-    } catch (err) {
-      alert('فشل في إلغاء الاشتراك');
-    }
+  const handleAction = (action: string) => {
+    alert(`جاري تنفيذ ${action}... سيتم توجيهك إلى بوابة الدفع.`);
+    // Here we would redirect to Shopify/PayPal/Stripe
   };
 
   if (loading) {
     return (
-      <div className="p-8 bg-gray-50 min-h-screen flex items-center justify-center" dir="rtl">
+      <div className="flex items-center justify-center h-64" dir="rtl">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 font-medium">جاري تحميل بيانات الاشتراك...</p>
@@ -79,188 +62,112 @@ export default function SubscriptionPage() {
 
   if (error || !data) {
     return (
-      <div className="p-8 bg-gray-50 min-h-screen flex items-center justify-center" dir="rtl">
-        <div className="text-center">
-          <p className="text-red-600 font-bold mb-4">{error || 'فشل في تحميل البيانات'}</p>
-          <button
-            onClick={fetchSubscriptionData}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            إعادة محاولة
-          </button>
-        </div>
+      <div className="p-8 text-center" dir="rtl">
+        <p className="text-red-600 font-bold mb-4">{error || 'فشل في تحميل البيانات'}</p>
+        <button
+          onClick={fetchSubscriptionData}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+        >
+          إعادة محاولة
+        </button>
       </div>
     );
   }
 
-  const getPlanColor = (plan: string) => {
-    switch(plan) {
-      case 'gold': return 'from-yellow-400 to-yellow-600';
-      case 'silver': return 'from-gray-300 to-gray-500';
-      default: return 'from-blue-400 to-blue-600';
-    }
-  };
-
-  const getPlanLabel = (plan: string) => {
-    switch(plan) {
-      case 'gold': return 'الخطة الذهبية';
-      case 'silver': return 'الخطة الفضية';
-      default: return 'الخطة الأساسية';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      case 'expired': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch(status) {
-      case 'active': return 'نشط';
-      case 'cancelled': return 'ملغي';
-      case 'expired': return 'منتهي الصلاحية';
-      default: return 'غير معروف';
-    }
-  };
-
   return (
-    <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen" dir="rtl">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">الاشتراك والفواتير</h1>
-        <p className="mt-1 text-sm text-gray-500">إدارة خطتك والفواتير</p>
+    <div className="space-y-8" dir="rtl">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">إدارة الاشتراك</h1>
+        <p className="text-gray-500 mt-1">عرض تفاصيل خطتك الحالية وسجل المدفوعات</p>
       </div>
 
       {/* Current Plan Card */}
-      <div className={`bg-gradient-to-r ${getPlanColor(data.currentPlan)} text-white p-8 rounded-3xl shadow-2xl mb-8`}>
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div>
-            <p className="text-lg font-bold opacity-90 mb-2">خطتك الحالية</p>
-            <h2 className="text-5xl font-black mb-4">{getPlanLabel(data.currentPlan)}</h2>
-            
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span className="text-sm">
-                  الحالة: <span className="font-bold">{getStatusLabel(data.status)}</span>
-                </span>
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">الخطة الحالية</span>
+                {data.status === 'active' && (
+                  <span className="bg-green-400/20 text-green-100 px-3 py-1 rounded-full text-xs font-bold">نشط</span>
+                )}
               </div>
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <span className="text-sm">
-                  التجديد: <span className="font-bold">{new Date(data.renewalDate).toLocaleDateString('ar-SA')}</span>
-                </span>
-              </div>
+              <h2 className="text-5xl font-black mb-2">{data.currentPlan}</h2>
+              <p className="text-blue-100 font-medium">
+                تاريخ التجديد القادم: {formatDate(new Date(data.renewalDate))}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-4xl font-black">{formatCurrency(data.price)}</p>
+              <p className="text-blue-100 text-sm">لكل {data.billingCycle === 'monthly' ? 'شهر' : 'سنة'}</p>
             </div>
           </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={handleUpgrade}
-              className="px-6 py-3 bg-white text-blue-600 font-bold rounded-xl hover:bg-gray-100 transition-all"
-            >
-              ترقية الخطة
-            </button>
-            {data.status === 'active' && (
-              <button
-                onClick={handleCancel}
-                className="px-6 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all"
-              >
-                إلغاء الاشتراك
-              </button>
-            )}
-          </div>
+        </div>
+        
+        <div className="p-8 flex flex-wrap gap-4 border-t border-gray-50">
+          <button 
+            onClick={() => handleAction('ترقية الخطة')}
+            className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+          >
+            ترقية الخطة (Upgrade)
+          </button>
+          <button 
+            onClick={() => handleAction('إلغاء الاشتراك')}
+            className="px-8 py-3 bg-white text-red-600 border border-red-100 rounded-2xl font-bold hover:bg-red-50 transition-all"
+          >
+            إلغاء الاشتراك (Cancel)
+          </button>
+          <button 
+            onClick={() => handleAction('سجل الفواتير')}
+            className="px-8 py-3 bg-gray-50 text-gray-700 rounded-2xl font-bold hover:bg-gray-100 transition-all"
+          >
+            سجل الفواتير (Billing History)
+          </button>
         </div>
       </div>
 
-      {/* Plan Features */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-blue-100 rounded-xl text-blue-600">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.856-1.487M15 10a3 3 0 11-6 0 3 3 0 016 0zM6 20a9 9 0 0118 0" />
-              </svg>
-            </div>
-            <h3 className="font-bold text-gray-900">المرضى</h3>
-          </div>
-          <p className="text-3xl font-black text-blue-600 mb-2">
-            {data.currentPlan === 'gold' ? '∞' : data.currentPlan === 'silver' ? '300' : '100'}
-          </p>
-          <p className="text-sm text-gray-600">مريض مسموح</p>
+      {/* Billing History Table */}
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-6 border-b border-gray-50">
+          <h3 className="text-xl font-bold text-gray-900">سجل المدفوعات</h3>
         </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-green-100 rounded-xl text-green-600">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <h3 className="font-bold text-gray-900">المواعيد</h3>
-          </div>
-          <p className="text-3xl font-black text-green-600 mb-2">
-            {data.currentPlan === 'gold' ? '∞' : data.currentPlan === 'silver' ? '100' : '20'}
-          </p>
-          <p className="text-sm text-gray-600">موعد مسموح</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-purple-100 rounded-xl text-purple-600">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-              </svg>
-            </div>
-            <h3 className="font-bold text-gray-900">الأطباء</h3>
-          </div>
-          <p className="text-3xl font-black text-purple-600 mb-2">
-            {data.currentPlan === 'gold' ? '∞' : data.currentPlan === 'silver' ? '20' : '5'}
-          </p>
-          <p className="text-sm text-gray-600">طبيب مسموح</p>
-        </div>
-      </div>
-
-      {/* Billing History */}
-      <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
-        <h3 className="text-lg font-bold text-gray-900 mb-6">سجل الفواتير</h3>
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full text-right">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-right py-3 px-4 text-gray-600 font-bold">التاريخ</th>
-                <th className="text-right py-3 px-4 text-gray-600 font-bold">المبلغ</th>
-                <th className="text-right py-3 px-4 text-gray-600 font-bold">الحالة</th>
-                <th className="text-right py-3 px-4 text-gray-600 font-bold">الفاتورة</th>
+              <tr className="bg-gray-50 text-gray-500 text-sm">
+                <th className="px-6 py-4 font-bold">رقم الفاتورة</th>
+                <th className="px-6 py-4 font-bold">التاريخ</th>
+                <th className="px-6 py-4 font-bold">المبلغ</th>
+                <th className="px-6 py-4 font-bold">الحالة</th>
+                <th className="px-6 py-4 font-bold">الإجراء</th>
               </tr>
             </thead>
-            <tbody>
-              {data.billingHistory.map((bill, idx) => (
-                <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
-                  <td className="py-3 px-4 text-gray-900">{new Date(bill.date).toLocaleDateString('ar-SA')}</td>
-                  <td className="py-3 px-4 text-gray-600 font-bold">{bill.amount.toLocaleString()} ر.س</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                      bill.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {bill.status === 'paid' ? 'مدفوع' : 'معلق'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4">
-                    <button className="text-blue-600 hover:text-blue-800 font-bold">
-                      تحميل
-                    </button>
-                  </td>
+            <tbody className="divide-y divide-gray-50">
+              {data.billingHistory.length > 0 ? (
+                data.billingHistory.map((invoice) => (
+                  <tr key={invoice.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4 font-bold text-gray-900">{invoice.number}</td>
+                    <td className="px-6 py-4 text-gray-600">{formatDate(new Date(invoice.date))}</td>
+                    <td className="px-6 py-4 font-bold text-gray-900">{formatCurrency(invoice.amount)}</td>
+                    <td className="px-6 py-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        invoice.status === 'paid' 
+                          ? 'bg-green-100 text-green-700' 
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {invoice.status === 'paid' ? 'مدفوع' : 'معلق'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <button className="text-blue-600 font-bold hover:underline text-sm">تحميل PDF</button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">لا يوجد سجل مدفوعات حالياً</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

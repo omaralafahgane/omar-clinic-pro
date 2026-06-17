@@ -88,15 +88,8 @@ export async function POST(req: Request) {
           throw new Error(`${roleName} role not found`);
         }
 
-        // Get default clinic for new users
-        const clinicResult = await clinicsDbHelpers.getDefaultClinic();
+        // New users will start without a clinic and be redirected to setup
         let clinicId = null;
-
-        if (clinicResult.success && clinicResult.data) {
-          clinicId = clinicResult.data.id;
-        } else {
-          console.warn("Default clinic not found, creating user without clinic_id");
-        }
 
         // Create user in Supabase using service role client (bypasses RLS)
         const { data: user, error } = await supabaseAdmin

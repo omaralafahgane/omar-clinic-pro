@@ -15,85 +15,109 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's clinic
+    // Get user's clinic_id from users table
     const { data: user } = await supabase
       .from('users')
       .select('clinic_id')
-      .eq('clerk_id', userId)
+      .eq('id', userId)
       .single();
 
     if (!user?.clinic_id) {
-      return NextResponse.json({ error: 'No clinic found' }, { status: 404 });
+      return NextResponse.json({ 
+        success: false,
+        error: 'No clinic found',
+        requiresSetup: true 
+      }, { status: 200 });
     }
 
     const clinicId = user.clinic_id;
 
-    // Patients Report
+    // --- 1. Patients Report ---
+    
+    // Total Patients
     const { count: totalPatients } = await supabase
       .from('patients')
       .select('*', { count: 'exact', head: true })
-      .eq('clinic_id', clinicId);
+      .eq('clinic_id', clinicId)
+      .is('deleted_at', null);
 
-    const thisMonth = new Date();
-    thisMonth.setDate(1);
-    const thisMonthStr = thisMonth.toISOString().split('T')[0];
+    // New Patients This Month
+    const firstDayOfMonth = new Date();
+    firstDayOfMonth.setDate(1);
+    firstDayOfMonth.setHours(0, 0, 0, 0);
 
-    const { count: newThisMonth } = await supabase
+    const { count: newPatientsThisMonth } = await supabase
       .from('patients')
       .select('*', { count: 'exact', head: true })
       .eq('clinic_id', clinicId)
-      .gte('created_at', thisMonthStr);
+      .gte('created_at', firstDayOfMonth.toISOString())
+      .is('deleted_at', null);
 
-    // Top Diseases
-    const { data: diseases } = await supabase
-      .from('patients')
-      .select('disease')
+    // Top Diseases (Extracted from treatments diagnosis)
+    const { data: treatments } = await supabase
+      .from('treatments')
+      .select('diagnosis')
       .eq('clinic_id', clinicId)
-      .not('disease', 'is', null);
+      .is('deleted_at', null)
+      .not('diagnosis', 'is', null);
 
-    const diseaseCount: Record<string, number> = {};
-    diseases?.forEach((p: any) => {
-      if (p.disease) {
-        diseaseCount[p.disease] = (diseaseCount[p.disease] || 0) + 1;
+    const diagnosisCount: Record<string, number> = {};
+    treatments?.forEach((t: any) => {
+      if (t.diagnosis) {
+        const d = t.diagnosis.trim();
+        diagnosisCount[d] = (diagnosisCount[d] || 0) + 1;
       }
     });
 
-    const topDiseases = Object.entries(diseaseCount)
-      .map(([disease, count]) => ({ disease, count }))
+    const topDiseases = Object.entries(diagnosisCount)
+      .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
+      .slice(0, 5);
 
-    // Financial Report
-    const { data: allInvoices } = await supabase
+    // --- 2. Financial Report ---
+    
+    // Invoices Data
+    const { data: invoices } = await supabase
       .from('invoices')
-      .select('final_amount, payment_status')
-      .eq('clinic_id', clinicId);
+      .select('total_amount, paid_amount, balance_due, status')
+      .eq('clinic_id', clinicId)
+      .is('deleted_at', null);
 
-    const totalRevenue = allInvoices?.reduce((sum: number, inv: any) => sum + (inv.final_amount || 0), 0) || 0;
-    const totalPaid = allInvoices?.filter((inv: any) => inv.payment_status === 'paid').reduce((sum: number, inv: any) => sum + (inv.final_amount || 0), 0) || 0;
-    const totalDebt = allInvoices?.filter((inv: any) => inv.payment_status !== 'paid').reduce((sum: number, inv: any) => sum + (inv.final_amount || 0), 0) || 0;
+    const financial = {
+      totalRevenue: invoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0,
+      totalPaid: invoices?.reduce((sum, inv) => sum + Number(inv.paid_amount), 0) || 0,
+      totalDebt: invoices?.reduce((sum, inv) => sum + Number(inv.balance_due), 0) || 0,
+    };
 
-    // Monthly Revenue
-    const monthlyRevenue: Record<string, number> = {};
-    for (let i = 11; i >= 0; i--) {
-      const date = new Date();
-      date.setMonth(date.getMonth() - i);
-      const month = date.toLocaleString('en-US', { month: 'short' });
-      const year = date.getFullYear();
-      const monthYear = `${month} ${year}`;
+    // Monthly Financial Stats (Last 6 Months)
+    const monthlyStats = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const monthLabel = d.toLocaleString('ar-SA', { month: 'long' });
+      const monthStart = new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
+      const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59).toISOString();
 
-      const startDate = new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
-      const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0).toISOString().split('T')[0];
-
-      const { data: invoices } = await supabase
+      const monthInvoices = invoices?.filter(inv => {
+        // Since we don't have created_at in the select above, we use a simple filter if we had it, 
+        // but for accurate monthly stats we should query specifically
+        return true; // Placeholder for logic below
+      });
+      
+      // Correct way: Query monthly
+      const { data: mInvoices } = await supabase
         .from('invoices')
-        .select('final_amount')
+        .select('total_amount, paid_amount')
         .eq('clinic_id', clinicId)
-        .eq('payment_status', 'paid')
-        .gte('created_at', startDate)
-        .lte('created_at', endDate);
+        .gte('created_at', monthStart)
+        .lte('created_at', monthEnd)
+        .is('deleted_at', null);
 
-      monthlyRevenue[monthYear] = invoices?.reduce((sum: number, inv: any) => sum + (inv.final_amount || 0), 0) || 0;
+      monthlyStats.push({
+        month: monthLabel,
+        revenue: mInvoices?.reduce((sum, inv) => sum + Number(inv.total_amount), 0) || 0,
+        paid: mInvoices?.reduce((sum, inv) => sum + Number(inv.paid_amount), 0) || 0,
+      });
     }
 
     return NextResponse.json({
@@ -101,19 +125,17 @@ export async function GET(request: NextRequest) {
       data: {
         patients: {
           total: totalPatients || 0,
-          newThisMonth: newThisMonth || 0,
+          newThisMonth: newPatientsThisMonth || 0,
           topDiseases
         },
         financial: {
-          totalRevenue,
-          totalPaid,
-          totalDebt,
-          monthlyRevenue
+          ...financial,
+          monthlyStats
         }
       }
     });
   } catch (error: any) {
-    console.error('Reports error:', error);
+    console.error('Reports API error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to fetch reports' },
       { status: 500 }

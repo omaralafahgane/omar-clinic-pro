@@ -3,6 +3,7 @@ import Link from "next/link";
 import { UserButton, useUser, SignOutButton } from "@clerk/nextjs";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function ClinicDashboardLayout({
   children,
@@ -107,7 +108,8 @@ export default function ClinicDashboardLayout({
           })}
         </nav>
 
-        <div className="p-4 border-t bg-gray-50/50">
+        <div className="p-4 border-t bg-gray-50/50 dark:bg-gray-800/50 space-y-2">
+          <ThemeToggle />
           {isLoaded && user && (
             <div className="flex items-center gap-3 px-2 py-3 mb-2">
               <UserButton afterSignOutUrl="/login" />

@@ -10,6 +10,41 @@ export const resendConfig = {
 const resend = resendConfig.apiKey ? new Resend(resendConfig.apiKey) : null;
 
 export const emailTemplates = {
+  appointmentConfirmation: (data: any) => ({
+    subject: "تأكيد موعدك - عيادة عمر",
+    html: `<div dir="rtl" style="font-family: sans-serif;">
+      <h1>تم تأكيد موعدك بنجاح</h1>
+      <p>مرحباً ${data.name}،</p>
+      <p>تم حجز موعدك في عيادة عمر بالتفاصيل التالية:</p>
+      <ul>
+        <li><strong>التاريخ:</strong> ${data.date}</li>
+        <li><strong>الوقت:</strong> ${data.time}</li>
+      </ul>
+      <p>نتطلع لرؤيتك في الموعد المحدد.</p>
+    </div>`
+  }),
+  appointmentReminder: (data: any) => ({
+    subject: "تذكير بموعدك غداً - عيادة عمر",
+    html: `<div dir="rtl" style="font-family: sans-serif;">
+      <h1>تذكير بموعدك</h1>
+      <p>مرحباً ${data.name}،</p>
+      <p>نود تذكيرك بموعدك غداً في عيادة عمر:</p>
+      <ul>
+        <li><strong>الوقت:</strong> ${data.time}</li>
+      </ul>
+      <p>يرجى الحضور قبل الموعد بـ 10 دقائق. في حال رغبتك في التأجيل، يرجى التواصل معنا.</p>
+    </div>`
+  }),
+  fileUploaded: (data: any) => ({
+    subject: "ملف طبي جديد في حسابك - عيادة عمر",
+    html: `<div dir="rtl" style="font-family: sans-serif;">
+      <h1>إشعار إضافة ملف طبي</h1>
+      <p>مرحباً ${data.name}،</p>
+      <p>تمت إضافة ملف طبي جديد (صورة أشعة أو نتائج مختبر) إلى ملفك الشخصي.</p>
+      <p>يمكنك تسجيل الدخول إلى بوابة المريض لمشاهدة الملف وتحميله.</p>
+      <a href="https://omarclinicp.com/portal" style="padding: 10px 20px; background-color: #0070f3; color: white; text-decoration: none; border-radius: 5px;">الدخول لبوابة المريض</a>
+    </div>`
+  }),
   welcome: (name: string) => ({
     subject: "أهلاً وسهلاً في Omar Clinic Pro",
     html: `<div dir="rtl" style="font-family: sans-serif;">

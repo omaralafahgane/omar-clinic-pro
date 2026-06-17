@@ -19,11 +19,11 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get('type') || 'patients';
     const format = searchParams.get('format') || 'pdf';
 
-    // Get user's clinic
+    // Get user's clinic_id from users table
     const { data: user } = await supabase
       .from('users')
       .select('clinic_id')
-      .eq('clerk_id', userId)
+      .eq('id', userId)
       .single();
 
     if (!user?.clinic_id) {
@@ -35,112 +35,115 @@ export async function GET(request: NextRequest) {
     if (type === 'patients') {
       const { data: patients } = await supabase
         .from('patients')
-        .select('*')
+        .select('first_name, last_name, email, phone, created_at')
         .eq('clinic_id', clinicId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (format === 'excel') {
-        // Create CSV content
-        const headers = ['الاسم', 'البريد الإلكتروني', 'الهاتف', 'تاريخ الميلاد', 'المرض', 'تاريخ الإضافة'];
+        // Create CSV content (Excel compatible)
+        const headers = ['الاسم الأول', 'اسم العائلة', 'البريد الإلكتروني', 'الهاتف', 'تاريخ الإضافة'];
         const rows = patients?.map((p: any) => [
-          p.name,
+          p.first_name,
+          p.last_name,
           p.email,
           p.phone,
-          p.date_of_birth,
-          p.disease,
           new Date(p.created_at).toLocaleDateString('ar-SA')
         ]) || [];
 
-        const csv = [headers, ...rows]
+        const csv = "\ufeff" + [headers, ...rows]
           .map(row => row.map(cell => `"${cell || ''}"`).join(','))
           .join('\n');
 
         return new NextResponse(csv, {
           headers: {
             'Content-Type': 'text/csv; charset=utf-8',
-            'Content-Disposition': 'attachment; filename=patients-report.csv'
+            'Content-Disposition': `attachment; filename=patients-report-${new Date().toISOString().split('T')[0]}.csv`
           }
         });
       } else {
-        // PDF export (simplified text format)
-        const pdf = `
-تقرير المرضى
-================
-تاريخ: ${new Date().toLocaleDateString('ar-SA')}
+        // PDF export (simplified text format for this environment)
+        const content = `
+تقرير المرضى - Omar Clinic Pro
+===============================
+تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}
 إجمالي المرضى: ${patients?.length || 0}
 
 قائمة المرضى:
 ${patients?.map((p: any, idx: number) => `
-${idx + 1}. ${p.name}
-   البريد: ${p.email}
+${idx + 1}. ${p.first_name} ${p.last_name}
+   البريد: ${p.email || 'غير متوفر'}
    الهاتف: ${p.phone}
-   المرض: ${p.disease}
-   تاريخ الإضافة: ${new Date(p.created_at).toLocaleDateString('ar-SA')}
+   تاريخ الانضمام: ${new Date(p.created_at).toLocaleDateString('ar-SA')}
 `).join('\n')}
         `;
 
-        return new NextResponse(pdf, {
+        return new NextResponse(content, {
           headers: {
             'Content-Type': 'text/plain; charset=utf-8',
-            'Content-Disposition': 'attachment; filename=patients-report.txt'
+            'Content-Disposition': `attachment; filename=patients-report-${new Date().toISOString().split('T')[0]}.txt`
           }
         });
       }
     } else if (type === 'financial') {
       const { data: invoices } = await supabase
         .from('invoices')
-        .select('*')
+        .select('invoice_number, total_amount, paid_amount, balance_due, status, created_at')
         .eq('clinic_id', clinicId)
+        .is('deleted_at', null)
         .order('created_at', { ascending: false });
 
       if (format === 'excel') {
-        const headers = ['رقم الفاتورة', 'المريض', 'المبلغ', 'حالة الدفع', 'التاريخ'];
+        const headers = ['رقم الفاتورة', 'المبلغ الإجمالي', 'المبلغ المدفوع', 'المتبقي', 'الحالة', 'التاريخ'];
         const rows = invoices?.map((inv: any) => [
-          inv.id,
-          inv.patient_id,
-          inv.final_amount,
-          inv.payment_status,
+          inv.invoice_number,
+          inv.total_amount,
+          inv.paid_amount,
+          inv.balance_due,
+          inv.status,
           new Date(inv.created_at).toLocaleDateString('ar-SA')
         ]) || [];
 
-        const csv = [headers, ...rows]
+        const csv = "\ufeff" + [headers, ...rows]
           .map(row => row.map(cell => `"${cell || ''}"`).join(','))
           .join('\n');
 
         return new NextResponse(csv, {
           headers: {
             'Content-Type': 'text/csv; charset=utf-8',
-            'Content-Disposition': 'attachment; filename=financial-report.csv'
+            'Content-Disposition': `attachment; filename=financial-report-${new Date().toISOString().split('T')[0]}.csv`
           }
         });
       } else {
-        const totalRevenue = invoices?.reduce((sum: number, inv: any) => sum + (inv.final_amount || 0), 0) || 0;
-        const totalPaid = invoices?.filter((inv: any) => inv.payment_status === 'paid').reduce((sum: number, inv: any) => sum + (inv.final_amount || 0), 0) || 0;
-        const totalDebt = invoices?.filter((inv: any) => inv.payment_status !== 'paid').reduce((sum: number, inv: any) => sum + (inv.final_amount || 0), 0) || 0;
+        const totalRevenue = invoices?.reduce((sum: number, inv: any) => sum + Number(inv.total_amount), 0) || 0;
+        const totalPaid = invoices?.reduce((sum: number, inv: any) => sum + Number(inv.paid_amount), 0) || 0;
+        const totalDebt = invoices?.reduce((sum: number, inv: any) => sum + Number(inv.balance_due), 0) || 0;
 
-        const pdf = `
-التقرير المالي
-================
-تاريخ: ${new Date().toLocaleDateString('ar-SA')}
+        const content = `
+التقرير المالي - Omar Clinic Pro
+===============================
+تاريخ التقرير: ${new Date().toLocaleDateString('ar-SA')}
 
 ملخص مالي:
 إجمالي الإيرادات: ${totalRevenue.toLocaleString()} ر.س
-المدفوع: ${totalPaid.toLocaleString()} ر.س
-الديون: ${totalDebt.toLocaleString()} ر.س
+إجمالي المحصل: ${totalPaid.toLocaleString()} ر.س
+إجمالي الديون: ${totalDebt.toLocaleString()} ر.س
 
-قائمة الفواتير:
+تفاصيل الفواتير:
 ${invoices?.map((inv: any, idx: number) => `
-${idx + 1}. الفاتورة #${inv.id}
-   المبلغ: ${inv.final_amount} ر.س
-   الحالة: ${inv.payment_status}
+${idx + 1}. فاتورة رقم: ${inv.invoice_number}
+   المبلغ: ${inv.total_amount} ر.س
+   المدفوع: ${inv.paid_amount} ر.س
+   المتبقي: ${inv.balance_due} ر.س
+   الحالة: ${inv.status}
    التاريخ: ${new Date(inv.created_at).toLocaleDateString('ar-SA')}
 `).join('\n')}
         `;
 
-        return new NextResponse(pdf, {
+        return new NextResponse(content, {
           headers: {
             'Content-Type': 'text/plain; charset=utf-8',
-            'Content-Disposition': 'attachment; filename=financial-report.txt'
+            'Content-Disposition': `attachment; filename=financial-report-${new Date().toISOString().split('T')[0]}.txt`
           }
         });
       }

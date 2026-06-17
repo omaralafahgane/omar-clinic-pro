@@ -31,11 +31,22 @@ export const clinicsDbHelpers = {
       const { userId } = await auth();
       if (!userId) return { success: false, error: "User not authenticated" };
 
+      // Find user first to get their clinic_id
+      const { data: user, error: userError } = await supabase
+        .from("users")
+        .select("clinic_id")
+        .eq("id", userId)
+        .single();
+
+      if (userError || !user?.clinic_id) {
+        return { success: false, error: "No clinic associated with this user" };
+      }
+
       // Find clinic associated with this user
       const { data, error } = await supabase
         .from("clinics")
         .select("*")
-        .eq("owner_id", userId)
+        .eq("id", user.clinic_id)
         .single();
 
       if (error && error.code !== "PGRST116") {

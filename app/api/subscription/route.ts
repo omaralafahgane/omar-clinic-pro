@@ -15,49 +15,58 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user's clinic
+    // Get user's clinic_id
     const { data: user } = await supabase
       .from('users')
       .select('clinic_id')
-      .eq('clerk_id', userId)
+      .eq('id', userId)
       .single();
 
     if (!user?.clinic_id) {
-      return NextResponse.json({ error: 'No clinic found' }, { status: 404 });
+      return NextResponse.json({ 
+        success: false,
+        error: 'No clinic found',
+        requiresSetup: true 
+      }, { status: 200 });
     }
 
-    // Get clinic subscription
-    const { data: clinic } = await supabase
-      .from('clinics')
-      .select('subscription_plan, subscription_status, subscription_renewal_date, shopify_subscription_id')
-      .eq('id', user.clinic_id)
+    const clinicId = user.clinic_id;
+
+    // Get clinic subscription from subscriptions table
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('clinic_id', clinicId)
       .single();
 
-    // Get billing history
+    // Get billing history from invoices table
     const { data: invoices } = await supabase
       .from('invoices')
-      .select('id, final_amount, payment_status, created_at')
-      .eq('clinic_id', user.clinic_id)
+      .select('id, invoice_number, total_amount, status, created_at')
+      .eq('clinic_id', clinicId)
       .order('created_at', { ascending: false })
       .limit(10);
 
     return NextResponse.json({
       success: true,
       data: {
-        currentPlan: clinic?.subscription_plan || 'basic',
-        status: clinic?.subscription_status || 'active',
-        renewalDate: clinic?.subscription_renewal_date || new Date().toISOString(),
-        shopifySubscriptionId: clinic?.shopify_subscription_id || '',
+        currentPlan: subscription?.plan || 'PRO',
+        status: subscription?.status || 'active',
+        renewalDate: subscription?.renewal_date || subscription?.end_date || new Date().toISOString(),
+        price: subscription?.price || 0,
+        currency: subscription?.currency || 'SAR',
+        billingCycle: subscription?.billing_cycle || 'monthly',
         billingHistory: invoices?.map((inv: any) => ({
           id: inv.id,
-          amount: inv.final_amount,
+          number: inv.invoice_number,
+          amount: inv.total_amount,
           date: inv.created_at,
-          status: inv.payment_status
+          status: inv.status
         })) || []
       }
     });
   } catch (error: any) {
-    console.error('Subscription error:', error);
+    console.error('Subscription API error:', error);
     return NextResponse.json(
       { error: error.message || 'Failed to fetch subscription' },
       { status: 500 }
