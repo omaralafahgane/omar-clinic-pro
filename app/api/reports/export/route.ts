@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from "@/lib/api-permissions";
+import { PERMISSIONS } from "@/lib/roles";
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -7,7 +9,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 
-export async function GET(request: NextRequest) {
+export const GET = requirePermission(PERMISSIONS.REPORTS_READ)(async (request: NextRequest) => {
   try {
     const { userId } = await auth();
     
@@ -157,4 +159,4 @@ ${idx + 1}. فاتورة رقم: ${inv.invoice_number}
       { status: 500 }
     );
   }
-}
+});

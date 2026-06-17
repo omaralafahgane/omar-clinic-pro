@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requirePermission } from "@/lib/api-permissions";
+import { PERMISSIONS } from "@/lib/roles";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -17,7 +19,7 @@ const supabase = supabaseUrl && supabaseServiceKey
 /**
  * GET: Fetch clinic data for the logged-in user
  */
-export async function GET() {
+export const GET = requirePermission(PERMISSIONS.SETTINGS_READ)(async () => {
   try {
     const { userId } = await auth();
     
@@ -95,19 +97,13 @@ export async function GET() {
     }
 
     return NextResponse.json(data);
-  } catch (error: any) {
-    console.error("API Error (GET):", error);
-    return NextResponse.json(
-      { error: "Internal Server Error", details: error.message },
-      { status: 500 }
-    );
   }
-}
+});
 
 /**
  * PATCH: Update or create clinic data
  */
-export async function PATCH(req: NextRequest) {
+export const PATCH = requirePermission(PERMISSIONS.SETTINGS_EDIT)(async (req: NextRequest) => {
   try {
     const { userId } = await auth();
     const user = await currentUser();
@@ -235,11 +231,5 @@ export async function PATCH(req: NextRequest) {
       data: result,
       message: "تم حفظ البيانات بنجاح في قاعدة البيانات",
     });
-  } catch (error: any) {
-    console.error("API Error (PATCH):", error);
-    return NextResponse.json(
-      { error: "Internal Server Error", details: error.message },
-      { status: 500 }
-    );
   }
-}
+});
