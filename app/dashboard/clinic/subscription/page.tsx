@@ -116,8 +116,8 @@ export default function SubscriptionPage() {
             </svg>
           </div>
           <div>
-            <h3 className="text-lg font-bold text-yellow-900">حسابك غير نشط</h3>
-            <p className="text-yellow-700">يرجى اختيار خطة اشتراك أدناه لتفعيل حسابك والوصول لكافة المميزات.</p>
+            <h3 className="text-lg font-bold text-yellow-900">الدفع مطلوب لتفعيل الحساب</h3>
+            <p className="text-yellow-700">لا تتوفر فترة تجريبية حالياً. يرجى اختيار خطة والبدء فوراً للوصول لكافة مميزات العيادة.</p>
           </div>
         </div>
       )}

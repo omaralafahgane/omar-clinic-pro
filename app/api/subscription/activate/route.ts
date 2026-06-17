@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
         plan: plan,
         status: "active",
         current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        trial_end: null, // No trial period
         updated_at: new Date().toISOString()
       });
 
