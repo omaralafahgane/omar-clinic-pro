@@ -3,14 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/nextjs';
 import { cn } from '@/lib/utils';
-import { Alert } from '@/components';
+import { Sidebar } from '@/components/layout/Sidebar';
+import { Header } from '@/components/layout/Header';
 
 export default function SettingsPage() {
   const { user: clerkUser, isLoaded: isClerkLoaded } = useUser();
   const [clinic, setClinic] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -29,10 +29,6 @@ export default function SettingsPage() {
     if (isClerkLoaded && clerkUser) {
       loadClinicData();
     }
-    // Load dark mode preference
-    const isDark = localStorage.getItem('darkMode') === 'true';
-    setDarkMode(isDark);
-    if (isDark) document.documentElement.classList.add('dark');
   }, [isClerkLoaded, clerkUser]);
 
   const loadClinicData = async () => {
@@ -40,25 +36,18 @@ export default function SettingsPage() {
     setLoading(true);
     setError(null);
     try {
-      // Use the API endpoint instead of direct DB helper for better consistency
       const response = await fetch('/api/clinic');
       
       if (response.status === 206) {
-        // Setup required - no clinic yet, this is fine for new users
+        // Setup required - new user
         setLoading(false);
         return;
       }
 
-      if (!response.ok && response.status !== 402) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "فشل في استرجاع بيانات العيادة");
-      }
+      const result = await response.json();
       
-      const data = await response.json();
-      // API might return payment required error but still give clinic data if it exists
-      const clinicData = data.data || data;
-      
-      if (clinicData && clinicData.id) {
+      if (response.ok) {
+        const clinicData = result;
         setClinic(clinicData);
         setFormData({
           name: clinicData.name || '',
@@ -72,7 +61,7 @@ export default function SettingsPage() {
         });
       }
     } catch (err: any) {
-      setError(err.message || "حدث خطأ في تحميل البيانات");
+      console.error("Load error:", err);
     } finally {
       setLoading(false);
     }
@@ -84,14 +73,13 @@ export default function SettingsPage() {
     setError(null);
     setSuccess(null);
 
-    if (!formData.name || !formData.email || !formData.phone || !formData.description || !formData.address || !formData.city) {
-      setError("يرجى ملء جميع الحقول المطلوبة (الاسم، البريد الإلكتروني، الهاتف، العنوان، المدينة، والنبذة)");
+    if (!formData.name || !formData.email || !formData.phone) {
+      setError("يرجى ملء الحقول الأساسية (الاسم، البريد الإلكتروني، الهاتف)");
       setSaving(false);
       return;
     }
 
     try {
-      // Use the API PATCH endpoint which handles both CREATE and UPDATE
       const response = await fetch('/api/clinic', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -105,14 +93,12 @@ export default function SettingsPage() {
       }
 
       setClinic(result.data);
-      setSuccess("تم حفظ البيانات بنجاح! ✅");
+      setSuccess("تم حفظ بيانات العيادة بنجاح! ✅");
       
-      // If this was the first time setup, refresh after a delay to update layout state
-      if (result.message?.includes("قاعدة البيانات") || !clinic) {
-        setTimeout(() => window.location.reload(), 1500);
-      } else {
-        setTimeout(() => setSuccess(null), 3000);
-      }
+      // Refresh after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } catch (err: any) {
       setError(err.message || "حدث خطأ أثناء الحفظ");
     } finally {
@@ -120,186 +106,149 @@ export default function SettingsPage() {
     }
   };
 
-  const toggleDarkMode = () => {
-    const newDarkMode = !darkMode;
-    setDarkMode(newDarkMode);
-    localStorage.setItem('darkMode', newDarkMode.toString());
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  };
-
   if (loading || !isClerkLoaded) {
     return (
-      <div className="p-8 bg-gray-50 dark:bg-gray-900 min-h-screen flex items-center justify-center" dir="rtl">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          <span className="text-gray-600 dark:text-gray-400 font-medium">جاري تحميل إعدادات العيادة...</span>
+      <div className="flex items-center justify-center h-screen bg-gray-50" dir="rtl">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 font-medium">جاري تحميل الإعدادات...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={cn("p-4 sm:p-6 lg:p-8 min-h-screen", darkMode ? "dark bg-gray-900" : "bg-gray-50")} dir="rtl">
-      {/* Header with Dark Mode Toggle */}
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className={cn("text-3xl font-extrabold tracking-tight", darkMode ? "text-white" : "text-gray-900")}>
-            إعدادات العيادة
-          </h1>
-          <p className={cn("mt-1 text-sm", darkMode ? "text-gray-400" : "text-gray-500")}>
-            إدارة بيانات عيادتك والإعدادات الأساسية
-          </p>
-        </div>
-        <button
-          onClick={toggleDarkMode}
-          className={cn(
-            "p-3 rounded-lg transition-all",
-            darkMode
-              ? "bg-yellow-500 text-gray-900 hover:bg-yellow-400"
-              : "bg-gray-800 text-yellow-400 hover:bg-gray-700"
+    <div className="min-h-screen bg-gray-50" dir="rtl">
+      <Sidebar />
+      <Header />
+
+      <main className="mr-64 mt-16 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-4xl font-black text-gray-900">إعدادات العيادة</h1>
+            <p className="text-gray-600 mt-2">قم بضبط بيانات عيادتك الأساسية لتفعيل النظام</p>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border-r-4 border-red-500 text-red-700 font-bold rounded-lg shadow-sm">
+              {error}
+            </div>
           )}
-          title={darkMode ? "تفعيل الوضع الفاتح" : "تفعيل الوضع الليلي"}
-        >
-          {darkMode ? "☀️" : "🌙"}
-        </button>
-      </div>
 
-      {/* Alerts */}
-      {error && (
-        <div className="mb-6">
-          <Alert type="error" message={error} onClose={() => setError(null)} />
-        </div>
-      )}
-      {success && (
-        <div className="mb-6">
-          <Alert type="success" message={success} />
-        </div>
-      )}
-
-      <div className={cn("rounded-3xl shadow-xl overflow-hidden border", darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-100")}>
-        <form onSubmit={handleSave} className="p-8 space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-2">
-              <label className={cn("text-sm font-bold", darkMode ? "text-gray-300" : "text-gray-700")}>اسم العيادة *</label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className={cn("w-full px-4 py-3 rounded-xl border-2 transition-all focus:ring-4 focus:ring-blue-100 outline-none", 
-                  darkMode ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-100 focus:border-blue-600")}
-                placeholder="مثلاً: عيادة الأمل الطبية"
-              />
+          {success && (
+            <div className="mb-6 p-4 bg-green-50 border-r-4 border-green-500 text-green-700 font-bold rounded-lg shadow-sm">
+              {success}
             </div>
+          )}
 
-            <div className="space-y-2">
-              <label className={cn("text-sm font-bold", darkMode ? "text-gray-300" : "text-gray-700")}>البريد الإلكتروني *</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className={cn("w-full px-4 py-3 rounded-xl border-2 transition-all focus:ring-4 focus:ring-blue-100 outline-none", 
-                  darkMode ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-100 focus:border-blue-600")}
-                placeholder="clinic@example.com"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className={cn("text-sm font-bold", darkMode ? "text-gray-300" : "text-gray-700")}>رقم الهاتف *</label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className={cn("w-full px-4 py-3 rounded-xl border-2 transition-all focus:ring-4 focus:ring-blue-100 outline-none", 
-                  darkMode ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-100 focus:border-blue-600")}
-                placeholder="07XXXXXXXX"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className={cn("text-sm font-bold", darkMode ? "text-gray-300" : "text-gray-700")}>الموقع الإلكتروني</label>
-              <input
-                type="url"
-                value={formData.website}
-                onChange={(e) => setFormData({ ...formData, website: e.target.value })}
-                className={cn("w-full px-4 py-3 rounded-xl border-2 transition-all focus:ring-4 focus:ring-blue-100 outline-none", 
-                  darkMode ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-100 focus:border-blue-600")}
-                placeholder="https://example.com"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className={cn("text-sm font-bold", darkMode ? "text-gray-300" : "text-gray-700")}>المدينة *</label>
-              <input
-                type="text"
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                className={cn("w-full px-4 py-3 rounded-xl border-2 transition-all focus:ring-4 focus:ring-blue-100 outline-none", 
-                  darkMode ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-100 focus:border-blue-600")}
-                placeholder="مثلاً: عمان"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <label className={cn("text-sm font-bold", darkMode ? "text-gray-300" : "text-gray-700")}>الدولة</label>
-              <select
-                value={formData.country}
-                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                className={cn("w-full px-4 py-3 rounded-xl border-2 transition-all focus:ring-4 focus:ring-blue-100 outline-none appearance-none", 
-                  darkMode ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-100 focus:border-blue-600")}
-              >
-                <option value="الأردن">الأردن</option>
-                <option value="السعودية">السعودية</option>
-                <option value="فلسطين">فلسطين</option>
-                <option value="الإمارات">الإمارات</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className={cn("text-sm font-bold", darkMode ? "text-gray-300" : "text-gray-700")}>العنوان التفصيلي *</label>
-            <input
-              type="text"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className={cn("w-full px-4 py-3 rounded-xl border-2 transition-all focus:ring-4 focus:ring-blue-100 outline-none", 
-                darkMode ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-100 focus:border-blue-600")}
-              placeholder="الشارع، البناية، رقم الطابق"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className={cn("text-sm font-bold", darkMode ? "text-gray-300" : "text-gray-700")}>نبذة عن العيادة *</label>
-            <textarea
-              rows={4}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className={cn("w-full px-4 py-3 rounded-xl border-2 transition-all focus:ring-4 focus:ring-blue-100 outline-none resize-none", 
-                darkMode ? "bg-gray-700 border-gray-600 text-white focus:border-blue-500" : "bg-white border-gray-100 focus:border-blue-600")}
-              placeholder="اكتب وصفاً مختصراً للخدمات التي تقدمها العيادة..."
-            />
-          </div>
-
-          <div className="pt-4">
-            <button
-              type="submit"
-              disabled={saving}
-              className={cn("w-full md:w-auto px-12 py-4 rounded-2xl font-black text-lg transition-all shadow-xl disabled:opacity-50",
-                darkMode ? "bg-blue-500 text-white hover:bg-blue-400 shadow-blue-900/20" : "bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200")}
-            >
-              {saving ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  جاري الحفظ...
+          <div className="bg-white rounded-3xl border border-gray-200 shadow-xl overflow-hidden">
+            <form onSubmit={handleSave} className="p-8 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">اسم العيادة *</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                    placeholder="مثلاً: عيادة الشفاء"
+                  />
                 </div>
-              ) : "حفظ الإعدادات"}
-            </button>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">البريد الإلكتروني للعيادة *</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                    placeholder="clinic@example.com"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">رقم الهاتف *</label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                    placeholder="07XXXXXXXX"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">الموقع الإلكتروني</label>
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                    placeholder="https://example.com"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">المدينة *</label>
+                  <input
+                    type="text"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                    placeholder="مثلاً: عمان"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-bold text-gray-700">الدولة</label>
+                  <select
+                    value={formData.country}
+                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none transition-all appearance-none"
+                  >
+                    <option value="الأردن">الأردن</option>
+                    <option value="السعودية">السعودية</option>
+                    <option value="فلسطين">فلسطين</option>
+                    <option value="الإمارات">الإمارات</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">العنوان التفصيلي</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
+                  placeholder="الشارع، البناية، الطابق"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-gray-700">وصف مختصر للعيادة</label>
+                <textarea
+                  rows={4}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-100 focus:border-blue-600 focus:ring-4 focus:ring-blue-100 outline-none transition-all resize-none"
+                  placeholder="اكتب نبذة عن تخصص العيادة والخدمات..."
+                />
+              </div>
+
+              <div className="pt-4">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full md:w-auto px-12 py-4 bg-blue-600 text-white rounded-2xl font-black text-lg hover:bg-blue-700 transition-all shadow-xl shadow-blue-500/30 disabled:opacity-50"
+                >
+                  {saving ? "جاري الحفظ..." : "حفظ بيانات العيادة وتفعيل النظام"}
+                </button>
+              </div>
+            </form>
           </div>
-        </form>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
