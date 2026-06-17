@@ -10,17 +10,26 @@ export default function InvoicesPage() {
   const [patients, setPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [clinicId, setClinicId] = useState<string>('');
+  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
 
   const [newInvoice, setNewInvoice] = useState({
     patient_id: '',
     total_amount: '',
     discount_amount: '0',
     tax_amount: '0',
+    notes: '',
+  });
+
+  const [paymentData, setPaymentData] = useState({
+    amount_paid: 0,
+    payment_method: 'cash',
+    payment_date: new Date().toISOString().split('T')[0],
     notes: '',
   });
 
@@ -57,7 +66,7 @@ export default function InvoicesPage() {
     setLoading(true);
     try {
       const filters: any = {};
-      if (filterStatus !== 'all') filters.status = filterStatus;
+      if (filterStatus !== 'all') filters.payment_status = filterStatus;
       
       const result = await invoicesDbHelpers.findByClinic(clinicId, filters);
       if (result.success) {
@@ -95,7 +104,7 @@ export default function InvoicesPage() {
         discount_amount: discount,
         tax_amount: tax,
         final_amount: finalAmount,
-        status: 'pending'
+        payment_status: 'unpaid'
       });
 
       if (result.success) {
@@ -120,43 +129,56 @@ export default function InvoicesPage() {
     }
   };
 
-  const handleUpdateStatus = async (id: string, newStatus: string) => {
+  const handleRecordPayment = async () => {
+    setIsSubmitting(true);
+    setError(null);
+
     try {
-      const result = await invoicesDbHelpers.updateStatus(id, newStatus);
+      const newStatus = selectedInvoice.final_amount === paymentData.amount_paid ? 'paid' : 'partial';
+      
+      const result = await invoicesDbHelpers.update(selectedInvoice.id, {
+        payment_status: newStatus,
+        amount_paid: (selectedInvoice.amount_paid || 0) + paymentData.amount_paid,
+      });
+
       if (result.success) {
+        setSuccess("تم تسجيل الدفع بنجاح!");
+        setTimeout(() => {
+          setShowPaymentModal(false);
+          setSuccess(null);
+        }, 1500);
         loadInvoices();
-        setSuccess("تم تحديث حالة الفاتورة بنجاح!");
-        setTimeout(() => setSuccess(null), 2000);
+        setSelectedInvoice(null);
       }
-    } catch (err) {
-      setError("فشل في تحديث حالة الفاتورة");
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const getStatusBadge = (status: string) => {
     const styles: any = {
-      pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      unpaid: "bg-red-100 text-red-800 border-red-200",
       paid: "bg-green-100 text-green-800 border-green-200",
-      partially_paid: "bg-blue-100 text-blue-800 border-blue-200",
-      cancelled: "bg-red-100 text-red-800 border-red-200",
-      overdue: "bg-orange-100 text-orange-800 border-orange-200",
+      partial: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      cancelled: "bg-gray-100 text-gray-800 border-gray-200",
     };
     const labels: any = {
-      pending: "قيد الانتظار",
+      unpaid: "غير مدفوعة",
       paid: "مدفوعة",
-      partially_paid: "مدفوعة جزئياً",
+      partial: "مدفوعة جزئياً",
       cancelled: "ملغاة",
-      overdue: "متأخرة",
     };
     return (
-      <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-bold border", styles[status] || styles.pending)}>
+      <span className={cn("px-2.5 py-0.5 rounded-full text-xs font-bold border", styles[status] || styles.unpaid)}>
         {labels[status] || status}
       </span>
     );
   };
 
-  const totalCollected = invoices.filter(i => i.status === 'paid').reduce((acc, curr) => acc + (curr.final_amount || 0), 0);
-  const totalPending = invoices.filter(i => i.status === 'pending').reduce((acc, curr) => acc + (curr.final_amount || 0), 0);
+  const totalCollected = invoices.filter(i => i.payment_status === 'paid').reduce((acc, curr) => acc + (curr.final_amount || 0), 0);
+  const totalPending = invoices.filter(i => i.payment_status === 'unpaid').reduce((acc, curr) => acc + (curr.final_amount || 0), 0);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 bg-gray-50 min-h-screen" dir="rtl">
@@ -195,7 +217,7 @@ export default function InvoicesPage() {
           </div>
         </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-3 bg-yellow-50 rounded-xl text-yellow-600">
+          <div className="p-3 bg-red-50 rounded-xl text-red-600">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
@@ -228,11 +250,10 @@ export default function InvoicesPage() {
             onChange={(e) => setFilterStatus(e.target.value)}
           >
             <option value="all">جميع الحالات</option>
-            <option value="pending">قيد الانتظار</option>
+            <option value="unpaid">غير مدفوعة</option>
             <option value="paid">مدفوعة</option>
-            <option value="partially_paid">مدفوعة جزئياً</option>
+            <option value="partial">مدفوعة جزئياً</option>
             <option value="cancelled">ملغاة</option>
-            <option value="overdue">متأخرة</option>
           </select>
         </div>
       </div>
@@ -285,19 +306,22 @@ export default function InvoicesPage() {
                       {inv.discount_amount > 0 && <div className="text-[10px] text-red-500">خصم: {inv.discount_amount} ر.س</div>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(inv.status)}
+                      {getStatusBadge(inv.payment_status)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex gap-3">
-                        {inv.status !== 'paid' && (
+                        {inv.payment_status !== 'paid' && (
                           <button 
-                            onClick={() => handleUpdateStatus(inv.id, 'paid')}
-                            className="text-green-600 hover:text-green-800 transition-all font-bold"
+                            onClick={() => {
+                              setSelectedInvoice(inv);
+                              setShowPaymentModal(true);
+                            }}
+                            className="text-green-600 hover:text-green-800 transition-all font-bold text-xs"
                           >
-                            تم الدفع
+                            دفع
                           </button>
                         )}
-                        <button className="text-blue-600 hover:text-blue-800 transition-all">تحميل PDF</button>
+                        <button className="text-purple-600 hover:text-purple-800 transition-all font-bold text-xs">PDF</button>
                       </div>
                     </td>
                   </tr>
@@ -336,26 +360,26 @@ export default function InvoicesPage() {
             </div>
 
             <FormInput 
-              label="المبلغ الإجمالي *" type="number" placeholder="1000" step="0.01"
+              label="المبلغ الأساسي *" type="number" step="0.01"
               value={newInvoice.total_amount}
               onChange={(e) => setNewInvoice({...newInvoice, total_amount: e.target.value})}
               required
             />
 
             <FormInput 
-              label="الخصم" type="number" placeholder="0" step="0.01"
+              label="الخصم" type="number" step="0.01"
               value={newInvoice.discount_amount}
               onChange={(e) => setNewInvoice({...newInvoice, discount_amount: e.target.value})}
             />
 
             <FormInput 
-              label="الضريبة" type="number" placeholder="0" step="0.01"
+              label="الضريبة" type="number" step="0.01"
               value={newInvoice.tax_amount}
               onChange={(e) => setNewInvoice({...newInvoice, tax_amount: e.target.value})}
             />
 
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold text-gray-700 mb-1">ملاحظات</label>
+              <label className="block text-xs font-bold text-gray-700 mb-2">ملاحظات</label>
               <textarea 
                 placeholder="ملاحظات إضافية..."
                 value={newInvoice.notes}
@@ -369,11 +393,65 @@ export default function InvoicesPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full bg-green-600 text-white font-bold py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all"
+            className="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all"
           >
-            {isSubmitting ? "جاري الحفظ..." : "إصدار الفاتورة"}
+            {isSubmitting ? "جاري الحفظ..." : "إنشاء الفاتورة"}
           </button>
         </form>
+      </Modal>
+
+      {/* Payment Modal */}
+      <Modal 
+        isOpen={showPaymentModal} 
+        onClose={() => setShowPaymentModal(false)} 
+        title="تسجيل دفع"
+      >
+        {error && <div className="mb-4"><Alert type="error" message={error} onClose={() => setError(null)} /></div>}
+        
+        <div className="space-y-6">
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <div className="text-sm text-gray-600">
+              <div>الإجمالي: <span className="font-bold text-blue-900">{selectedInvoice?.final_amount} ر.س</span></div>
+              <div>المدفوع: <span className="font-bold text-blue-900">{selectedInvoice?.amount_paid || 0} ر.س</span></div>
+              <div>المتبقي: <span className="font-bold text-red-600">{(selectedInvoice?.final_amount - (selectedInvoice?.amount_paid || 0))} ر.س</span></div>
+            </div>
+          </div>
+
+          <FormInput 
+            label="المبلغ المدفوع *" type="number" step="0.01"
+            value={paymentData.amount_paid}
+            onChange={(e) => setPaymentData({...paymentData, amount_paid: parseFloat(e.target.value)})}
+            required
+          />
+
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-2">طريقة الدفع</label>
+            <select 
+              className="w-full border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 border p-2.5 text-sm"
+              value={paymentData.payment_method}
+              onChange={(e) => setPaymentData({...paymentData, payment_method: e.target.value})}
+            >
+              <option value="cash">نقداً</option>
+              <option value="card">بطاقة ائتمان</option>
+              <option value="transfer">تحويل بنكي</option>
+              <option value="check">شيك</option>
+            </select>
+          </div>
+
+          <FormInput 
+            label="تاريخ الدفع" type="date"
+            value={paymentData.payment_date}
+            onChange={(e) => setPaymentData({...paymentData, payment_date: e.target.value})}
+          />
+
+          <button
+            onClick={handleRecordPayment}
+            disabled={isSubmitting}
+            className="w-full bg-green-600 text-white font-bold py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-all"
+          >
+            {isSubmitting ? "جاري التسجيل..." : "تسجيل الدفع"}
+          </button>
+        </div>
       </Modal>
     </div>
   );
