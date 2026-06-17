@@ -44,10 +44,36 @@ export default function SubscriptionPage() {
     }
   };
 
-  const handleAction = (action: string) => {
-    alert(`جاري تنفيذ ${action}... سيتم توجيهك إلى بوابة الدفع.`);
-    // Here we would redirect to Shopify/PayPal/Stripe
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handlePayment = async (plan: string) => {
+    setIsProcessing(true);
+    try {
+      // Mock payment activation for now - in production redirect to Stripe/PayPal/Shopify
+      const res = await fetch('/api/subscription/activate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan })
+      });
+      
+      if (res.ok) {
+        alert('تم تفعيل الاشتراك بنجاح! سيتم توجيهك للوحة التحكم.');
+        window.location.href = '/dashboard/clinic';
+      } else {
+        throw new Error('فشل تفعيل الاشتراك');
+      }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsProcessing(false);
+    }
   };
+
+  const plans = [
+    { id: 'basic', name: 'الخطة الأساسية', price: 19, features: ['100 مريض', '20 موعد يومي', 'دعم فني'] },
+    { id: 'silver', name: 'الخطة الفضية', price: 49, features: ['300 مريض', '100 موعد يومي', 'تقارير مالية'] },
+    { id: 'gold', name: 'الخطة الذهبية', price: 99, features: ['مرضى غير محدود', 'مواعيد غير محدودة', 'بوابة مريض'] },
+  ];
 
   if (loading) {
     return (
@@ -81,49 +107,55 @@ export default function SubscriptionPage() {
         <p className="text-gray-500 mt-1">عرض تفاصيل خطتك الحالية وسجل المدفوعات</p>
       </div>
 
-      {/* Current Plan Card */}
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="bg-white/20 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">الخطة الحالية</span>
-                {data.status === 'active' && (
-                  <span className="bg-green-400/20 text-green-100 px-3 py-1 rounded-full text-xs font-bold">نشط</span>
-                )}
-              </div>
-              <h2 className="text-5xl font-black mb-2">{data.currentPlan}</h2>
-              <p className="text-blue-100 font-medium">
-                تاريخ التجديد القادم: {formatDate(new Date(data.renewalDate))}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-4xl font-black">{formatCurrency(data.price)}</p>
-              <p className="text-blue-100 text-sm">لكل {data.billingCycle === 'monthly' ? 'شهر' : 'سنة'}</p>
-            </div>
+      {/* Current Status Banner if inactive */}
+      {data.status !== 'active' && (
+        <div className="bg-yellow-50 border-2 border-yellow-200 p-6 rounded-3xl flex items-center gap-4">
+          <div className="w-12 h-12 bg-yellow-100 rounded-2xl flex items-center justify-center text-yellow-600">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-yellow-900">حسابك غير نشط</h3>
+            <p className="text-yellow-700">يرجى اختيار خطة اشتراك أدناه لتفعيل حسابك والوصول لكافة المميزات.</p>
           </div>
         </div>
-        
-        <div className="p-8 flex flex-wrap gap-4 border-t border-gray-50">
-          <button 
-            onClick={() => handleAction('ترقية الخطة')}
-            className="px-8 py-3 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-          >
-            ترقية الخطة (Upgrade)
-          </button>
-          <button 
-            onClick={() => handleAction('إلغاء الاشتراك')}
-            className="px-8 py-3 bg-white text-red-600 border border-red-100 rounded-2xl font-bold hover:bg-red-50 transition-all"
-          >
-            إلغاء الاشتراك (Cancel)
-          </button>
-          <button 
-            onClick={() => handleAction('سجل الفواتير')}
-            className="px-8 py-3 bg-gray-50 text-gray-700 rounded-2xl font-bold hover:bg-gray-100 transition-all"
-          >
-            سجل الفواتير (Billing History)
-          </button>
-        </div>
+      )}
+
+      {/* Plan Selection Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {plans.map((plan) => (
+          <div key={plan.id} className={`bg-white rounded-[40px] p-8 border-2 transition-all hover:shadow-2xl ${
+            data.currentPlan === plan.id ? 'border-blue-600 shadow-xl' : 'border-gray-100 hover:border-blue-200'
+          }`}>
+            <h3 className="text-2xl font-black text-gray-900 mb-2">{plan.name}</h3>
+            <div className="flex items-baseline gap-1 mb-6">
+              <span className="text-4xl font-black text-blue-600">{plan.price}</span>
+              <span className="text-gray-500 font-bold">د.أ / شهر</span>
+            </div>
+            <ul className="space-y-4 mb-8">
+              {plan.features.map((feature, i) => (
+                <li key={i} className="flex items-center gap-2 text-gray-600 font-medium">
+                  <svg className="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {feature}
+                </li>
+              ))}
+            </ul>
+            <button
+              disabled={isProcessing}
+              onClick={() => handlePayment(plan.id)}
+              className={`w-full py-4 rounded-2xl font-bold transition-all ${
+                data.currentPlan === plan.id 
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-100'
+              }`}
+            >
+              {isProcessing ? 'جاري المعالجة...' : data.currentPlan === plan.id ? 'خطتك الحالية' : 'اشترك الآن'}
+            </button>
+          </div>
+        ))}
       </div>
 
       {/* Billing History Table */}

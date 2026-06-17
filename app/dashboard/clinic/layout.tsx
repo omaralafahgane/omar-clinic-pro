@@ -14,6 +14,7 @@ export default function ClinicDashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const [showSetupAlert, setShowSetupAlert] = useState(false);
+  const [showPaymentAlert, setShowPaymentAlert] = useState(false);
   const [isCheckingSetup, setIsCheckingSetup] = useState(true);
 
   const navItems = [
@@ -33,18 +34,22 @@ export default function ClinicDashboardLayout({
       try {
         const res = await fetch("/api/clinic");
         
-        // If clinic setup is required (206 status or requiresSetup flag)
-        if (res.status === 206 || !res.ok) {
-          const data = await res.json().catch(() => ({}));
-          
-          if (data.requiresSetup || res.status === 206) {
-            setShowSetupAlert(true);
-            
-            // Only redirect if not already on settings page
-            if (!pathname.includes("/settings")) {
-              router.push("/dashboard/clinic/settings");
-            }
+        // Handle different requirement states
+        const data = await res.json().catch(() => ({}));
+        
+        if (res.status === 206 || data.requiresSetup) {
+          setShowSetupAlert(true);
+          if (!pathname.includes("/settings")) {
+            router.push("/dashboard/clinic/settings");
           }
+        } else if (res.status === 402 || data.requiresPayment) {
+          setShowPaymentAlert(true);
+          if (!pathname.includes("/subscription")) {
+            router.push("/dashboard/clinic/subscription");
+          }
+        } else if (res.ok) {
+          setShowSetupAlert(false);
+          setShowPaymentAlert(false);
         }
       } catch (error) {
         console.error("Error checking clinic setup:", error);
@@ -58,6 +63,29 @@ export default function ClinicDashboardLayout({
 
   return (
     <div className="flex h-screen bg-gray-100 dark:bg-gray-900" dir="rtl">
+      {/* Full Screen Payment Required Overlay */}
+      {showPaymentAlert && !pathname.includes("/subscription") && (
+        <div className="fixed inset-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg z-[101] flex items-center justify-center p-4 text-center">
+          <div className="max-w-md bg-white dark:bg-gray-800 p-10 rounded-[40px] shadow-2xl border-2 border-blue-100 dark:border-gray-700">
+            <div className="w-20 h-20 bg-green-50 dark:bg-green-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6 text-green-600">
+              <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-4">تفعيل الحساب مطلوب</h2>
+            <p className="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
+              أنت على بعد خطوة واحدة من إطلاق عيادتك. يرجى اختيار خطة الاشتراك المناسبة لتفعيل كافة مميزات النظام.
+            </p>
+            <Link 
+              href="/dashboard/clinic/subscription"
+              className="block w-full py-4 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all shadow-lg shadow-green-200 dark:shadow-none"
+            >
+              اختيار خطة الاشتراك
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Full Screen Setup Required Overlay */}
       {showSetupAlert && !pathname.includes("/settings") && (
         <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 text-center">

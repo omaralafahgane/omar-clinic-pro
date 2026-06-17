@@ -50,6 +50,24 @@ export async function GET() {
       );
     }
 
+    // Check subscription status
+    const { data: subscription } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .eq("clinic_id", user.clinic_id)
+      .maybeSingle();
+
+    if (!subscription || subscription.status !== 'active') {
+      return NextResponse.json(
+        { 
+          error: "PAYMENT_REQUIRED",
+          message: "يرجى اختيار خطة اشتراك وتفعيل الحساب",
+          requiresPayment: true
+        },
+        { status: 402 } // Payment Required
+      );
+    }
+
     // Query clinics table for this user
     const { data, error } = await supabase
       .from("clinics")
