@@ -158,6 +158,25 @@ export default function SubscriptionPage() {
         ))}
       </div>
 
+      {/* Action Buttons */}
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+        <h3 className="text-xl font-bold text-gray-900 mb-4">الإجراءات</h3>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href="/dashboard/clinic/subscription/upgrade"
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors"
+          >
+            ترقية الخطة
+          </a>
+          <a
+            href="/dashboard/clinic/subscription/cancel"
+            className="px-6 py-3 bg-red-100 text-red-600 rounded-lg font-bold hover:bg-red-200 transition-colors"
+          >
+            إلغاء الاشتراك
+          </a>
+        </div>
+      </div>
+
       {/* Billing History Table */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-50">
