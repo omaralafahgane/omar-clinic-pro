@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { KPICard } from '@/components/dashboard/KPICard';
 import { DataTable } from '@/components/shared/DataTable';
-import { Users, Calendar, TrendingUp, Clock } from 'lucide-react';
+import { Users, Calendar, TrendingUp, Clock, AlertCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 interface DashboardData {
@@ -33,6 +34,8 @@ interface DashboardData {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [requiresSetup, setRequiresSetup] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     fetchDashboardData();
@@ -42,7 +45,14 @@ export default function DashboardPage() {
     try {
       const response = await fetch('/api/dashboard/stats');
       const result = await response.json();
-      if (result.success) {
+      
+      if (result.requiresSetup) {
+        setRequiresSetup(true);
+        // Automatically redirect to settings after a short delay
+        setTimeout(() => {
+          router.push('/dashboard/clinic/settings');
+        }, 3000);
+      } else if (result.success) {
         setData(result.data);
       }
     } catch (err) {
@@ -58,6 +68,31 @@ export default function DashboardPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600 font-medium">جاري تحميل لوحة التحكم...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (requiresSetup) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center max-w-md p-8 bg-white rounded-2xl border border-gray-200 shadow-lg">
+          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-900 mb-4">مرحباً بك في Omar Clinic Pro!</h2>
+          <p className="text-gray-600 mb-6 leading-relaxed">
+            يبدو أنك لم تقم بإعداد بيانات عيادتك بعد. سنقوم بتوجيهك الآن إلى صفحة الإعدادات لإكمال البيانات الأساسية وتفعيل النظام.
+          </p>
+          <div className="animate-pulse flex items-center justify-center gap-2 text-blue-600 font-bold">
+            <span>جاري التوجيه تلقائياً...</span>
+          </div>
+          <button 
+            onClick={() => router.push('/dashboard/clinic/settings')}
+            className="mt-8 w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30"
+          >
+            الذهاب للإعدادات الآن
+          </button>
         </div>
       </div>
     );
