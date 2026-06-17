@@ -12,7 +12,6 @@ export async function GET(request: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Force check in users table
     const { data: user } = await supabase.from("users").select("clinic_id").eq("id", userId).maybeSingle();
     
     if (!user?.clinic_id) {
@@ -36,21 +35,33 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { name, email, phone, address, city, country, description } = body;
 
-    // 1. Find if user exists or create them
+    // 1. Check if user already has a clinic_id
     const { data: existingUser } = await supabase.from("users").select("clinic_id").eq("id", userId).maybeSingle();
     
     let clinicId = existingUser?.clinic_id;
-    let result;
 
+    // 2. If no clinic_id, check if a clinic with this email already exists
+    if (!clinicId && email) {
+      const { data: existingClinic } = await supabase.from("clinics").select("id").eq("email", email).maybeSingle();
+      if (existingClinic) {
+        clinicId = existingClinic.id;
+        // Link it to user immediately
+        await supabase.from("users").upsert({ id: userId, clinic_id: clinicId, role: 'owner' });
+      }
+    }
+
+    let result;
     if (clinicId) {
-      const { data: updatedClinic } = await supabase
+      // Update existing
+      const { data: updatedClinic, error: uErr } = await supabase
         .from("clinics")
         .update({ name, email, phone, address, city, country, description, updated_at: new Date().toISOString() })
         .eq("id", clinicId)
         .select().single();
+      if (uErr) throw uErr;
       result = updatedClinic;
     } else {
-      // 2. Create clinic
+      // Create NEW
       const { data: newClinic, error: cErr } = await supabase
         .from("clinics")
         .insert([{ name, email, phone, address, city, country: country || "الأردن", description, is_active: true }])
@@ -59,15 +70,11 @@ export async function PATCH(request: NextRequest) {
       if (cErr) throw cErr;
 
       if (newClinic) {
-        // 3. UPSERT user to ensure link exists
-        const { error: uErr } = await supabase
-          .from("users")
-          .upsert({ id: userId, clinic_id: newClinic.id, role: 'owner', updated_at: new Date().toISOString() });
-        
-        if (uErr) throw uErr;
+        await supabase.from("users").upsert({ id: userId, clinic_id: newClinic.id, role: 'owner' });
         result = newClinic;
       }
     }
+
     return NextResponse.json({ success: true, data: result });
   } catch (error: any) {
     console.error("PATCH Error:", error);
