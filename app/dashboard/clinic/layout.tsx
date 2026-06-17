@@ -57,9 +57,31 @@ export default function ClinicDashboardLayout({
   }, [isLoaded, pathname, router]);
 
   return (
-    <div className="flex h-screen bg-gray-100" dir="rtl">
-      {/* Setup Alert Banner */}
+    <div className="flex h-screen bg-gray-100 dark:bg-gray-900" dir="rtl">
+      {/* Full Screen Setup Required Overlay */}
       {showSetupAlert && !pathname.includes("/settings") && (
+        <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 text-center">
+          <div className="max-w-md bg-white dark:bg-gray-800 p-10 rounded-[40px] shadow-2xl border border-gray-100 dark:border-gray-700">
+            <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6 text-blue-600">
+              <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-4">خطوة واحدة متبقية!</h2>
+            <p className="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
+              يجب عليك إنشاء ملف العيادة وإدخال البيانات الأساسية لتتمكن من استخدام كافة مميزات Omar Clinic Pro.
+            </p>
+            <Link 
+              href="/dashboard/clinic/settings"
+              className="block w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
+            >
+              إنشاء ملف العيادة الآن
+            </Link>
+          </div>
+        </div>
+      )}
+      {/* Setup Alert Banner (Fallback for settings page) */}
+      {showSetupAlert && pathname.includes("/settings") && (
         <div className="fixed top-0 left-0 right-0 bg-yellow-50 border-b-2 border-yellow-400 z-50">
           <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
             <div className="flex items-center gap-2">

@@ -187,7 +187,7 @@ export default function DashboardPage() {
             <span className="text-xs font-bold text-gray-500 uppercase">الإيرادات</span>
           </div>
           <p className="text-3xl font-black text-gray-900">{data.stats.totalRevenue.toLocaleString()}</p>
-          <p className="text-xs text-gray-500 mt-4">ر.س</p>
+          <p className="text-xs text-gray-500 mt-4">د.أ (JOD)</p>
         </div>
 
         {/* Pending Revenue Card */}
@@ -201,7 +201,7 @@ export default function DashboardPage() {
             <span className="text-xs font-bold text-gray-500 uppercase">معلق</span>
           </div>
           <p className="text-3xl font-black text-gray-900">{data.stats.pendingRevenue.toLocaleString()}</p>
-          <p className="text-xs text-gray-500 mt-4">ر.س</p>
+          <p className="text-xs text-gray-500 mt-4">د.أ (JOD)</p>
         </div>
       </div>
 
