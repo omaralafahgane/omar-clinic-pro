@@ -226,31 +226,27 @@ export async function POST(req: Request) {
       const { id } = evt.data;
 
       try {
-        // Soft delete user in Supabase using service role client
+        // Hard delete user from Supabase using service role client
         const { error } = await supabaseAdmin
           .from("users")
-          .update({
-            deleted_at: new Date().toISOString(),
-            is_active: false,
-            updated_at: new Date().toISOString(),
-          })
+          .delete()
           .eq("id", id);
 
         if (error) {
           throw error;
         }
 
-        // Log user deletion
+        // Log user deletion (using a generic system log since user is gone)
         await activityLogsDb.log({
           clinic_id: "system",
           user_id: id,
           entity_type: "users",
           entity_id: id,
-          action: "delete",
+          action: "hard_delete",
           status: "success",
         });
 
-        console.log(`✅ User deleted: ${id}`);
+        console.log(`✅ User hard deleted: ${id}`);
         return NextResponse.json({ success: true }, { status: 200 });
       } catch (error) {
         console.error("❌ Error deleting user:", error);
