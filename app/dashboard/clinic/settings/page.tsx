@@ -20,7 +20,7 @@ export default function SettingsPage() {
     website: '',
     address: '',
     city: '',
-    country: 'Saudi Arabia',
+    country: 'الأردن',
     description: '',
   });
 
@@ -49,9 +49,9 @@ export default function SettingsPage() {
         website: result.data?.website || '',
         address: result.data?.address || '',
         city: result.data?.city || '',
-        country: result.data?.country || 'Saudi Arabia',
-        description: result.data?.description || '',
-      });
+      country: result.data?.country || 'الأردن',
+      description: result.data?.description || '',
+    });
     } catch (err: any) {
       setError(err.message || "حدث خطأ في تحميل البيانات");
     } finally {
@@ -65,8 +65,8 @@ export default function SettingsPage() {
     setError(null);
     setSuccess(null);
 
-    if (!formData.name || !formData.email || !formData.phone) {
-      setError("يرجى ملء جميع الحقول المطلوبة (الاسم، البريد الإلكتروني، الهاتف)");
+    if (!formData.name || !formData.email || !formData.phone || !formData.description || !formData.address || !formData.city) {
+      setError("يرجى ملء جميع الحقول المطلوبة (الاسم، البريد الإلكتروني، الهاتف، العنوان، المدينة، والنبذة)");
       setSaving(false);
       return;
     }
@@ -273,7 +273,8 @@ export default function SettingsPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="الرياض"
+                  required
+                  placeholder="عمان"
                   value={formData.city}
                   onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                   className={cn(
@@ -316,6 +317,7 @@ export default function SettingsPage() {
                 الوصف والخدمات
               </label>
               <textarea
+                required
                 placeholder="اكتب نبذة عن عيادتك والخدمات التي تقدمها..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}

@@ -20,6 +20,8 @@ interface DashboardData {
     monthlyRevenue: Record<string, number>;
     weeklyAppointments: Record<string, number>;
   };
+  upcomingAppointments: any[];
+  recentInvoices: any[];
 }
 
 export default function DashboardPage() {
@@ -244,6 +246,79 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Upcoming Appointments & Recent Invoices */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
+        {/* Upcoming Appointments */}
+        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-900 mb-6">المواعيد القادمة</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-right">
+              <thead>
+                <tr className="text-gray-400 text-sm border-b">
+                  <th className="pb-4 font-bold">المريض</th>
+                  <th className="pb-4 font-bold">الوقت</th>
+                  <th className="pb-4 font-bold">الحالة</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {data.upcomingAppointments?.length > 0 ? (
+                  data.upcomingAppointments.map((app: any) => (
+                    <tr key={app.id} className="border-b hover:bg-gray-50 transition-all">
+                      <td className="py-4 font-bold text-gray-900">{app.patient?.first_name} {app.patient?.last_name}</td>
+                      <td className="py-4 text-gray-600">{new Date(app.start_time).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="py-4">
+                        <span className="px-3 py-1 bg-green-100 text-green-600 rounded-full text-xs font-bold">مؤكد</span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="py-10 text-center text-gray-400 italic">لا توجد مواعيد قادمة</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Recent Invoices */}
+        <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+          <h3 className="text-lg font-bold text-gray-900 mb-6">الفواتير والمالية</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-right">
+              <thead>
+                <tr className="text-gray-400 text-sm border-b">
+                  <th className="pb-4 font-bold">المريض</th>
+                  <th className="pb-4 font-bold">المبلغ</th>
+                  <th className="pb-4 font-bold">الحالة</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {data.recentInvoices?.length > 0 ? (
+                  data.recentInvoices.map((inv: any) => (
+                    <tr key={inv.id} className="border-b hover:bg-gray-50 transition-all">
+                      <td className="py-4 font-bold text-gray-900">{inv.patient?.first_name} {inv.patient?.last_name}</td>
+                      <td className="py-4 text-gray-600 font-bold">{inv.total_amount} د.أ</td>
+                      <td className="py-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          inv.status === 'paid' ? 'bg-green-100 text-green-600' : 'bg-yellow-100 text-yellow-600'
+                        }`}>
+                          {inv.status === 'paid' ? 'مدفوعة' : 'معلقة'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={3} className="py-10 text-center text-gray-400 italic">لا توجد فواتير حديثة</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

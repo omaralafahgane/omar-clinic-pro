@@ -138,6 +138,23 @@ export async function GET(request: NextRequest) {
 
     const pendingRevenue = pendingInvoices?.reduce((sum: number, inv: any) => sum + (Number(inv.total_amount) || 0), 0) || 0;
 
+    // Get upcoming appointments (next 5)
+    const { data: upcomingAppointments } = await supabase
+      .from('appointments')
+      .select('*, patient:patients(first_name, last_name), doctor:doctors(first_name, last_name)')
+      .eq('clinic_id', clinicId)
+      .gte('start_time', new Date().toISOString())
+      .order('start_time', { ascending: true })
+      .limit(5);
+
+    // Get recent invoices (last 5)
+    const { data: recentInvoices } = await supabase
+      .from('invoices')
+      .select('*, patient:patients(first_name, last_name)')
+      .eq('clinic_id', clinicId)
+      .order('created_at', { ascending: false })
+      .limit(5);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -153,7 +170,9 @@ export async function GET(request: NextRequest) {
         charts: {
           monthlyRevenue,
           weeklyAppointments,
-        }
+        },
+        upcomingAppointments: upcomingAppointments || [],
+        recentInvoices: recentInvoices || []
       }
     });
   } catch (error: any) {
