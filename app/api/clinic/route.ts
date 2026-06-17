@@ -2,33 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const supabase = supabaseUrl && supabaseServiceKey 
-  ? createClient(supabaseUrl, supabaseServiceKey)
-  : null;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+);
 
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth();
-    if (!userId || !supabase) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    // Get user and their clinic_id
+    // 1. Check if user exists and has clinic_id
     const { data: user } = await supabase
       .from("users")
       .select("clinic_id")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
 
     if (!user?.clinic_id) {
       return NextResponse.json({ requiresSetup: true }, { status: 200 });
     }
 
-    // Get clinic data
-    const { data: clinic, error } = await supabase
+    // 2. Get clinic data
+    const { data: clinic } = await supabase
       .from("clinics")
       .select("*")
       .eq("id", user.clinic_id)
@@ -47,26 +43,28 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const { userId } = await auth();
-    if (!userId || !supabase) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const body = await request.json();
     const { name, email, phone, address, city, country, website, description } = body;
 
-    // Check if user already has a clinic
+    // 1. Get or Create user record to ensure we have a place to store clinic_id
     const { data: userRecord } = await supabase
       .from("users")
       .select("clinic_id")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
+
+    if (!userRecord) {
+      await supabase.from("users").insert([{ id: userId, role: 'owner' }]);
+    }
 
     let clinicId = userRecord?.clinic_id;
     let result;
 
     if (clinicId) {
-      // Update existing
-      const { data: updatedClinic } = await supabase
+      // Update existing clinic
+      const { data: updatedClinic, error: updateError } = await supabase
         .from("clinics")
         .update({
           name, email, phone, address, city, country, website, description,
@@ -75,9 +73,11 @@ export async function PATCH(request: NextRequest) {
         .eq("id", clinicId)
         .select()
         .single();
+      
+      if (updateError) throw updateError;
       result = updatedClinic;
     } else {
-      // Create new
+      // Create NEW clinic and link it to user
       const { data: newClinic, error: createError } = await supabase
         .from("clinics")
         .insert([{
@@ -89,14 +89,23 @@ export async function PATCH(request: NextRequest) {
         .select()
         .single();
 
+      if (createError) throw createError;
+
       if (newClinic) {
-        await supabase.from("users").update({ clinic_id: newClinic.id }).eq("id", userId);
+        // CRITICAL: Link user to the new clinic
+        const { error: linkError } = await supabase
+          .from("users")
+          .update({ clinic_id: newClinic.id })
+          .eq("id", userId);
+        
+        if (linkError) throw linkError;
         result = newClinic;
       }
     }
 
     return NextResponse.json({ success: true, data: result });
-  } catch (error) {
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Clinic Patch Error:", error);
+    return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
   }
 }
