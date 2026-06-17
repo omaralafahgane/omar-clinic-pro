@@ -2,7 +2,8 @@
 // Production-ready Supabase integration with unified helpers and relationship joins
 
 import { createClient } from "@supabase/supabase-js";
-import { auth } from "@clerk/nextjs/server";
+// auth should not be imported here to avoid client/server component conflicts in Next.js 15
+// Instead, pass userId as a parameter to functions that need it
 
 // Initialize Supabase client (Anon key - for client-side operations)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -23,13 +24,11 @@ export const supabaseAdmin = supabaseUrl && supabaseServiceRoleKey ? createClien
 // ============================================================================
 export const clinicsDbHelpers = {
   // Get the current user's clinic (replaces getDefaultClinic)
-  getCurrentClinic: async () => {
+  getCurrentClinic: async (userId: string) => {
     try {
       if (!supabase) return { success: false, error: "Database not configured" };
       
-      // Get current user from Clerk
-      const { userId } = await auth();
-      if (!userId) return { success: false, error: "User not authenticated" };
+      if (!userId) return { success: false, error: "User ID is required" };
 
       // Find user first to get their clinic_id
       const { data: user, error: userError } = await supabase
