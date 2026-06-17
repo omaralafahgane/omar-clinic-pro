@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@clerk/nextjs';
 
@@ -8,6 +8,7 @@ export default function ClinicSettingsPage() {
   const router = useRouter();
   const { userId } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,6 +18,24 @@ export default function ClinicSettingsPage() {
     country: 'الأردن',
     description: ''
   });
+
+  useEffect(() => {
+    async function checkClinic() {
+      try {
+        const res = await fetch('/api/clinic');
+        const data = await res.json();
+        if (data.success && data.data) {
+          // If clinic already exists, redirect to subscription
+          router.replace('/dashboard/clinic/subscription');
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setInitialLoading(false);
+      }
+    }
+    checkClinic();
+  }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -34,14 +53,13 @@ export default function ClinicSettingsPage() {
         body: JSON.stringify(formData)
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        // Success: Hard redirect to clear any middleware state
+        window.location.href = '/dashboard/clinic/subscription';
+      } else {
         const error = await response.json();
         alert(`خطأ: ${error.error || 'فشل حفظ البيانات'}`);
-        return;
       }
-
-      // Force refresh the entire page to ensure data is reloaded
-      window.location.href = '/dashboard/clinic/subscription';
     } catch (error) {
       alert(`خطأ في الاتصال: ${error}`);
     } finally {
@@ -49,12 +67,14 @@ export default function ClinicSettingsPage() {
     }
   };
 
+  if (initialLoading) return <div className="flex items-center justify-center min-h-screen">جاري التحميل...</div>;
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow p-8">
-        <h1 className="text-3xl font-bold mb-6 text-gray-900">إعدادات العيادة</h1>
+        <h1 className="text-3xl font-bold mb-6 text-gray-900 text-right">إعدادات العيادة</h1>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 text-right" dir="rtl">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">اسم العيادة *</label>
             <input
@@ -69,7 +89,7 @@ export default function ClinicSettingsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">البريد الإلكتروني *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">البريد الإلكتروني للعيادة *</label>
             <input
               type="email"
               name="email"
@@ -152,7 +172,7 @@ export default function ClinicSettingsPage() {
             disabled={loading}
             className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 transition"
           >
-            {loading ? 'جاري الحفظ...' : 'حفظ وتفعيل النظام'}
+            {loading ? 'جاري الحفظ والتفعيل...' : 'حفظ وتفعيل النظام'}
           </button>
         </form>
       </div>

@@ -19,6 +19,7 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);
+const isSettingsRoute = createRouteMatcher(["/dashboard/clinic/settings(.*)"]);
 
 export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth();
@@ -33,33 +34,24 @@ export default clerkMiddleware(async (auth, request) => {
     return (await auth()).redirectToSignIn();
   }
 
-  // 3. Role handling for dashboard
+  // 3. Skip complex role checks for settings page to avoid redirect loops
+  if (isSettingsRoute(request)) {
+    return NextResponse.next();
+  }
+
+  // 4. Role handling for dashboard
   if (isDashboardRoute(request)) {
-    // Check if user exists in our DB
-    const { data: user, error } = await supabase
+    const { data: user } = await supabase
       .from("users")
-      .select("role")
+      .select("role, clinic_id")
       .eq("id", userId)
       .maybeSingle();
 
-    let userRole = user?.role;
-
-    // If user doesn't exist in our DB yet, create them as 'owner'
-    // This happens when they first sign up via Clerk
-    if (!user && !error) {
-      const { data: newUser } = await supabase
-        .from("users")
-        .insert([{ id: userId, role: ROLES.OWNER }])
-        .select("role")
-        .single();
-      userRole = newUser?.role;
-    }
-
-    // Default to receptionist if still no role found
-    const finalRole = userRole || ROLES.RECEPTIONIST;
-
     const response = NextResponse.next();
-    response.headers.set("x-user-role", finalRole);
+    if (user) {
+      response.headers.set("x-user-role", user.role);
+      response.headers.set("x-clinic-id", user.clinic_id || "");
+    }
     return response;
   }
 
