@@ -76,7 +76,7 @@ export async function POST(req: Request) {
 
       try {
         // Determine role based on email
-        let roleName = "patient";
+        let roleName = "owner";
         if (email === "omaralblack@gmail.com") {
           roleName = "admin";
         }

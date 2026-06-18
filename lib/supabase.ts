@@ -621,3 +621,42 @@ export const appointmentsDb = appointmentsDbHelpers;
 export const invoicesDb = invoicesDbHelpers;
 export const doctorsDb = doctorsDbHelpers;
 export const clinicsDb = clinicsDbHelpers;
+
+// ============================================================================
+// ROLES HELPERS
+// ============================================================================
+export const rolesDbHelpers = {
+  findByName: async (name: string) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { data, error } = await supabase
+        .from("roles")
+        .select("*")
+        .eq("name", name)
+        .single();
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error finding role:", error);
+      return { success: false, error };
+    }
+  },
+  getAll: async () => {
+    try {
+      if (!supabase) return { success: true, data: [] };
+      const { data, error } = await supabase
+        .from("roles")
+        .select("*")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error getting roles:", error);
+      return { success: true, data: [] };
+    }
+  }
+};
+
+// Update Backward Compatibility exports
+export const rolesDb = rolesDbHelpers;
+export const activityLogsDb = activityLogsDbHelpers;
