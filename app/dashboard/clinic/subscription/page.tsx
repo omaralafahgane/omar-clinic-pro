@@ -24,9 +24,9 @@ export default function SubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isNewSetup, setIsNewSetup] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    // Check if this is a new setup (coming from clinic settings page)
     const params = new URLSearchParams(window.location.search);
     if (params.get('setup') === 'true') {
       setIsNewSetup(true);
@@ -38,7 +38,6 @@ export default function SubscriptionPage() {
     try {
       const response = await fetch('/api/subscription?t=' + Date.now());
       if (!response.ok) {
-        // If subscription fetch fails, create a default data object for new setup
         const params = new URLSearchParams(window.location.search);
         if (params.get('setup') === 'true') {
           setData({
@@ -60,7 +59,6 @@ export default function SubscriptionPage() {
       if (result.success) {
         setData(result.data);
       } else {
-        // If no subscription exists, show default data
         setData({
           currentPlan: 'none',
           status: 'inactive',
@@ -73,7 +71,6 @@ export default function SubscriptionPage() {
       }
     } catch (err: any) {
       console.error('Error fetching subscription:', err);
-      // Don't show error, just show default data
       setData({
         currentPlan: 'none',
         status: 'inactive',
@@ -88,13 +85,10 @@ export default function SubscriptionPage() {
     }
   };
 
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  const handlePayment = async (plan: string) => {
+  const handlePayPalPayment = async (plan: string) => {
     setIsProcessing(true);
     try {
-      // Create checkout session with Stripe
-      const res = await fetch('/api/subscription/create-checkout', {
+      const res = await fetch('/api/payment/paypal/create-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId: plan })
@@ -102,27 +96,38 @@ export default function SubscriptionPage() {
       
       const result = await res.json();
       
-      if (res.ok && result.sessionId) {
-        // Redirect to Stripe checkout
-        window.location.href = result.url;
+      if (res.ok && result.approvalUrl) {
+        window.location.href = result.approvalUrl;
       } else {
-        // Fallback to mock activation if Stripe is not configured
-        const activateRes = await fetch('/api/subscription/activate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plan })
-        });
-        
-        if (activateRes.ok) {
-          alert('تم تفعيل الاشتراك بنجاح! سيتم توجيهك للوحة التحكم.');
-          window.location.href = '/dashboard/clinic';
-        } else {
-          throw new Error('فشل تفعيل الاشتراك');
-        }
+        alert('فشل إنشاء طلب الدفع. يرجى المحاولة مرة أخرى');
       }
     } catch (err: any) {
-      console.error('Payment error:', err);
-      alert(err.message || 'حدث خطأ أثناء معالجة الدفع');
+      console.error('PayPal payment error:', err);
+      alert('حدث خطأ أثناء معالجة الدفع');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleShopifyPayment = async (plan: string) => {
+    setIsProcessing(true);
+    try {
+      const res = await fetch('/api/payment/shopify/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: plan })
+      });
+      
+      const result = await res.json();
+      
+      if (res.ok && result.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+      } else {
+        alert('فشل إنشاء جلسة الدفع. يرجى المحاولة مرة أخرى');
+      }
+    } catch (err: any) {
+      console.error('Shopify payment error:', err);
+      alert('حدث خطأ أثناء معالجة الدفع');
     } finally {
       setIsProcessing(false);
     }
@@ -192,7 +197,7 @@ export default function SubscriptionPage() {
             </h3>
             <p className={isNewSetup ? 'text-blue-700' : 'text-yellow-700'}>
               {isNewSetup 
-                ? 'الآن يرجى اختيار خطة الاشتراك المناسبة لعيادتك للبدء فوراً.' 
+                ? 'الآن يرجى اختيار خطة الاشتراك المناسبة لعيادتك والبدء فوراً.' 
                 : 'لا تتوفر فترة تجريبية حالياً. يرجى اختيار خطة والبدء فوراً للوصول لكافة مميزات العيادة.'}
             </p>
           </div>
@@ -220,17 +225,39 @@ export default function SubscriptionPage() {
                 </li>
               ))}
             </ul>
-            <button
-              disabled={isProcessing || data.currentPlan === plan.id}
-              onClick={() => handlePayment(plan.id)}
-              className={`w-full py-4 rounded-2xl font-bold transition-all ${
-                data.currentPlan === plan.id 
-                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-100'
-              }`}
-            >
-              {isProcessing ? 'جاري المعالجة...' : data.currentPlan === plan.id ? 'خطتك الحالية' : 'اشترك الآن'}
-            </button>
+
+            {/* Payment Methods */}
+            <div className="space-y-3">
+              <button
+                disabled={isProcessing || data.currentPlan === plan.id}
+                onClick={() => handlePayPalPayment(plan.id)}
+                className={`w-full py-3 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 ${
+                  data.currentPlan === plan.id 
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 text-white hover:bg-blue-700 shadow-lg shadow-blue-100'
+                }`}
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20.067 8.478c.492.88.556 2.014.3 3.327-.74 3.806-3.276 5.12-6.514 5.12h-.5a.805.805 0 00-.794.68l-.04.22-.63 4.003-.028.15a.806.806 0 01-.795.68h-2.19a.563.563 0 01-.556-.65l1.428-9.046h2.19a.805.805 0 00.794-.68l.04-.22.63-4.003.028-.15a.806.806 0 01.795-.68h2.19c1.24 0 2.157-.505 2.457-1.57z"/>
+                </svg>
+                {isProcessing ? 'جاري المعالجة...' : data.currentPlan === plan.id ? 'خطتك الحالية' : 'ادفع عبر PayPal'}
+              </button>
+              
+              <button
+                disabled={isProcessing || data.currentPlan === plan.id}
+                onClick={() => handleShopifyPayment(plan.id)}
+                className={`w-full py-3 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 ${
+                  data.currentPlan === plan.id 
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                    : 'bg-green-600 text-white hover:bg-green-700 shadow-lg shadow-green-100'
+                }`}
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+                </svg>
+                {isProcessing ? 'جاري المعالجة...' : data.currentPlan === plan.id ? 'خطتك الحالية' : 'ادفع عبر Shopify'}
+              </button>
+            </div>
           </div>
         ))}
       </div>
