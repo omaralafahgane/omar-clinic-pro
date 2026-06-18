@@ -21,6 +21,8 @@ export default function ClinicDashboardLayout({
     { label: "لوحة التحكم", href: "/dashboard/clinic" },
     { label: "المرضى", href: "/dashboard/clinic/patients" },
     { label: "المواعيد", href: "/dashboard/clinic/appointments" },
+    { label: "الأطباء", href: "/dashboard/clinic/doctors" },
+    { label: "المخزون", href: "/dashboard/clinic/inventory" },
     { label: "الفواتير", href: "/dashboard/clinic/invoices" },
     { label: "التقارير", href: "/dashboard/clinic/reports" },
     { label: "الإعدادات", href: "/dashboard/clinic/settings" },
