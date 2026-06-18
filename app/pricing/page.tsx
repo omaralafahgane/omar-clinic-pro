@@ -12,7 +12,7 @@ export default function PricingPage() {
         "الفواتير البسيطة",
         "دعم البريد الإلكتروني",
       ],
-      cta: "ابدأ الآن",
+      cta: "اشترك الآن",
       highlighted: false,
     },
     {
@@ -27,7 +27,7 @@ export default function PricingPage() {
         "دعم الأولوية",
         "تكامل البريد الإلكتروني",
       ],
-      cta: "ابدأ الآن",
+      cta: "اشترك الآن",
       highlighted: true,
     },
     {
@@ -64,10 +64,10 @@ export default function PricingPage() {
                 تسجيل الدخول
               </Link>
               <Link
-                href="/free-trial"
+                href="/login"
                 className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
               >
-                تجربة مجانية
+                ابدأ الآن
               </Link>
             </div>
           </div>
@@ -79,7 +79,7 @@ export default function PricingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl font-bold text-gray-900 mb-6">أسعار شفافة وعادلة</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            اختر الخطة المناسبة لعيادتك. جميع الخطط تتضمن تجربة مجانية لمدة 14 يوم
+            اختر الخطة المناسبة لعيادتك وابدأ رحلة النجاح معنا اليوم
           </p>
         </div>
       </section>
@@ -107,15 +107,16 @@ export default function PricingPage() {
                 <span className="text-4xl font-bold text-gray-900">{plan.price}</span>
                 <span className="text-gray-600 mr-2">/شهر</span>
               </div>
-              <button
-                className={`w-full py-3 rounded-lg font-semibold mb-8 transition ${
+              <Link
+                href="/login"
+                className={`block w-full py-3 rounded-lg font-semibold mb-8 text-center transition ${
                   plan.highlighted
                     ? "bg-blue-500 text-white hover:bg-blue-600"
                     : "border-2 border-blue-500 text-blue-500 hover:bg-blue-50"
                 }`}
               >
                 {plan.cta}
-              </button>
+              </Link>
               <ul className="space-y-4">
                 {plan.features.map((feature, featureIdx) => (
                   <li key={featureIdx} className="flex items-start gap-3">
@@ -138,8 +139,8 @@ export default function PricingPage() {
           <div className="space-y-6">
             {[
               {
-                q: "هل هناك فترة تجربة مجانية؟",
-                a: "نعم، جميع الخطط تتضمن تجربة مجانية لمدة 14 يوم بدون الحاجة لبطاقة ائتمان",
+                q: "كيف يمكنني البدء؟",
+                a: "ببساطة قم بإنشاء حساب، أكمل بيانات عيادتك، واختر الخطة التي تناسبك.",
               },
               {
                 q: "هل يمكن تغيير الخطة لاحقاً؟",

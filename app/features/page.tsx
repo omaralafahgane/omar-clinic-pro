@@ -61,10 +61,10 @@ export default function FeaturesPage() {
                 تسجيل الدخول
               </Link>
               <Link
-                href="/free-trial"
+                href="/login"
                 className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
               >
-                تجربة مجانية
+                اشترك الآن
               </Link>
             </div>
           </div>
@@ -104,12 +104,12 @@ export default function FeaturesPage() {
       {/* CTA */}
       <section className="bg-blue-500 text-white py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold mb-6">ابدأ الآن</h2>
+          <h2 className="text-3xl font-bold mb-6">هل أنت مستعد للبدء؟</h2>
           <Link
-            href="/free-trial"
+            href="/login"
             className="bg-white text-blue-500 px-8 py-3 rounded-lg hover:bg-gray-100 font-semibold inline-block"
           >
-            تجربة مجانية
+            اشترك الآن
           </Link>
         </div>
       </section>
