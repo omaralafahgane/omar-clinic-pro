@@ -13,11 +13,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("Missing Supabase environment variables - database operations may fail");
 }
 
-export const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+export const supabase = (supabaseUrl && supabaseAnonKey) 
+  ? createClient(supabaseUrl, supabaseAnonKey) 
+  : createClient("https://placeholder-url.supabase.co", "placeholder-key");
 
 // SERVICE ROLE CLIENT - For server-side operations (webhooks, etc.)
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-export const supabaseAdmin = supabaseUrl && supabaseServiceRoleKey ? createClient(supabaseUrl, supabaseServiceRoleKey) : supabase;
+export const supabaseAdmin = (supabaseUrl && supabaseServiceRoleKey) 
+  ? createClient(supabaseUrl, supabaseServiceRoleKey) 
+  : supabase;
 
 // ============================================================================
 // UNIFIED CLINIC HELPERS - Core of the system
@@ -621,6 +625,30 @@ export const appointmentsDb = appointmentsDbHelpers;
 export const invoicesDb = invoicesDbHelpers;
 export const doctorsDb = doctorsDbHelpers;
 export const clinicsDb = clinicsDbHelpers;
+export const adminDb = {
+  getClinics: async () => {
+    try {
+      if (!supabase) return { success: true, data: [] };
+      const { data, error } = await supabase.from("clinics").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error fetching clinics for admin:", error);
+      return { success: false, error };
+    }
+  },
+  getStats: async () => {
+    try {
+      if (!supabase) return { success: true, data: { clinics: 0, users: 0, revenue: 0 } };
+      const { count: clinicsCount } = await supabase.from("clinics").select("*", { count: 'exact', head: true });
+      const { count: usersCount } = await supabase.from("users").select("*", { count: 'exact', head: true });
+      return { success: true, data: { clinics: clinicsCount || 0, users: usersCount || 0, revenue: 0 } };
+    } catch (error) {
+      console.error("Error fetching admin stats:", error);
+      return { success: false, error };
+    }
+  }
+};
 
 // ============================================================================
 // ROLES HELPERS

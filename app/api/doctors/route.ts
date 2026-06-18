@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin as supabase } from "@/lib/supabase";
 import { requirePermission } from '@/lib/api-permissions';
 import { PERMISSIONS } from '@/lib/roles';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+
 
 export const GET = requirePermission(PERMISSIONS.DOCTORS_READ)(async (request: NextRequest) => {
   try {
