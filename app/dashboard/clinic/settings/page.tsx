@@ -26,12 +26,23 @@ export default function ClinicSettingsPage() {
         const res = await fetch('/api/clinic-v2?t=' + Date.now());
         const data = await res.json();
         if (res.ok && data.success && data.data) {
-          // If clinic already exists, redirect to subscription
-          window.location.href = '/dashboard/clinic/subscription';
+          // If clinic already exists and has subscription, redirect to dashboard
+          const subRes = await fetch('/api/subscription');
+          const subData = await subRes.json();
+          
+          if (subRes.ok && subData.success && subData.data?.status === 'active') {
+            // Has active subscription, go to dashboard
+            window.location.href = '/dashboard/clinic';
+          } else {
+            // Has clinic but no active subscription, go to subscription page
+            window.location.href = '/dashboard/clinic/subscription';
+          }
         } else {
+          // No clinic, show setup form
           setInitialLoading(false);
         }
       } catch (err) {
+        console.error('Error checking clinic:', err);
         setInitialLoading(false);
       }
     }
@@ -48,6 +59,23 @@ export default function ClinicSettingsPage() {
     setLoading(true);
 
     try {
+      // Validate form data
+      if (!formData.name || !formData.email || !formData.phone || !formData.address || !formData.city) {
+        toast.error('يرجى ملء جميع الحقول المطلوبة');
+        setLoading(false);
+        return;
+      }
+
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.email)) {
+        toast.error('يرجى إدخال بريد إلكتروني صحيح');
+        setLoading(false);
+        return;
+      }
+
+      toast.loading('جاري حفظ البيانات...');
+
       const response = await fetch('/api/clinic-v2', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -56,17 +84,27 @@ export default function ClinicSettingsPage() {
 
       const responseData = await response.json();
 
-      if ((response.ok || response.status === 402) && responseData.success) {
+      if (!response.ok && response.status !== 402) {
+        console.error('Server error:', responseData);
+        toast.error(responseData.error || 'فشل حفظ البيانات. يرجى المحاولة مرة أخرى');
+        setLoading(false);
+        return;
+      }
+
+      if (responseData.success) {
         toast.success('تم حفظ البيانات بنجاح! جاري الانتقال لصفحة الاشتراك...');
+        // Add a small delay to ensure data is persisted
         setTimeout(() => {
-          window.location.href = '/dashboard/clinic/subscription';
+          // Force a hard redirect to bypass any caching
+          window.location.href = '/dashboard/clinic/subscription?setup=true&t=' + Date.now();
         }, 1500);
       } else {
         toast.error(responseData.error || 'فشل حفظ البيانات');
+        setLoading(false);
       }
-    } catch (error) {
-      toast.error('خطأ في الاتصال');
-    } finally {
+    } catch (error: any) {
+      console.error('Form submission error:', error);
+      toast.error('خطأ في الاتصال. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى');
       setLoading(false);
     }
   };

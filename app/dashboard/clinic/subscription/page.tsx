@@ -23,22 +23,66 @@ export default function SubscriptionPage() {
   const [data, setData] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isNewSetup, setIsNewSetup] = useState(false);
 
   useEffect(() => {
+    // Check if this is a new setup (coming from clinic settings page)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('setup') === 'true') {
+      setIsNewSetup(true);
+    }
     fetchSubscriptionData();
   }, []);
 
   const fetchSubscriptionData = async () => {
     try {
-      const response = await fetch('/api/subscription');
-      if (!response.ok) throw new Error('Failed to fetch subscription data');
+      const response = await fetch('/api/subscription?t=' + Date.now());
+      if (!response.ok) {
+        // If subscription fetch fails, create a default data object for new setup
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('setup') === 'true') {
+          setData({
+            currentPlan: 'none',
+            status: 'inactive',
+            renewalDate: new Date().toISOString(),
+            price: 0,
+            currency: 'sar',
+            billingCycle: 'month',
+            billingHistory: []
+          });
+          setLoading(false);
+          return;
+        }
+        throw new Error('Failed to fetch subscription data');
+      }
       
       const result = await response.json();
       if (result.success) {
         setData(result.data);
+      } else {
+        // If no subscription exists, show default data
+        setData({
+          currentPlan: 'none',
+          status: 'inactive',
+          renewalDate: new Date().toISOString(),
+          price: 0,
+          currency: 'sar',
+          billingCycle: 'month',
+          billingHistory: []
+        });
       }
     } catch (err: any) {
-      setError(err.message);
+      console.error('Error fetching subscription:', err);
+      // Don't show error, just show default data
+      setData({
+        currentPlan: 'none',
+        status: 'inactive',
+        renewalDate: new Date().toISOString(),
+        price: 0,
+        currency: 'sar',
+        billingCycle: 'month',
+        billingHistory: []
+      });
     } finally {
       setLoading(false);
     }
@@ -49,30 +93,45 @@ export default function SubscriptionPage() {
   const handlePayment = async (plan: string) => {
     setIsProcessing(true);
     try {
-      // Mock payment activation for now - in production redirect to Stripe/PayPal/Shopify
-      const res = await fetch('/api/subscription/activate', {
+      // Create checkout session with Stripe
+      const res = await fetch('/api/subscription/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan })
+        body: JSON.stringify({ planId: plan })
       });
       
-      if (res.ok) {
-        alert('تم تفعيل الاشتراك بنجاح! سيتم توجيهك للوحة التحكم.');
-        window.location.href = '/dashboard/clinic';
+      const result = await res.json();
+      
+      if (res.ok && result.sessionId) {
+        // Redirect to Stripe checkout
+        window.location.href = result.url;
       } else {
-        throw new Error('فشل تفعيل الاشتراك');
+        // Fallback to mock activation if Stripe is not configured
+        const activateRes = await fetch('/api/subscription/activate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan })
+        });
+        
+        if (activateRes.ok) {
+          alert('تم تفعيل الاشتراك بنجاح! سيتم توجيهك للوحة التحكم.');
+          window.location.href = '/dashboard/clinic';
+        } else {
+          throw new Error('فشل تفعيل الاشتراك');
+        }
       }
     } catch (err: any) {
-      alert(err.message);
+      console.error('Payment error:', err);
+      alert(err.message || 'حدث خطأ أثناء معالجة الدفع');
     } finally {
       setIsProcessing(false);
     }
   };
 
   const plans = [
-    { id: 'basic', name: 'الخطة الأساسية', price: 19, features: ['100 مريض', '20 موعد يومي', 'دعم فني'] },
-    { id: 'silver', name: 'الخطة الفضية', price: 49, features: ['300 مريض', '100 موعد يومي', 'تقارير مالية'] },
-    { id: 'gold', name: 'الخطة الذهبية', price: 99, features: ['مرضى غير محدود', 'مواعيد غير محدودة', 'بوابة مريض'] },
+    { id: 'basic', name: 'الخطة الأساسية', price: 99, features: ['حتى 50 مريض', 'حتى 5 أطباء', 'إدارة المواعيد الأساسية'] },
+    { id: 'professional', name: 'الخطة الاحترافية', price: 299, features: ['حتى 500 مريض', 'حتى 20 طبيب', 'إدارة متقدمة للمواعيد', 'التقارير المتقدمة'] },
+    { id: 'enterprise', name: 'الخطة المؤسسية', price: 999, features: ['عدد غير محدود من المرضى', 'عدد غير محدود من الأطباء', 'جميع الميزات', 'دعم فني 24/7'] },
   ];
 
   if (loading) {
@@ -86,10 +145,10 @@ export default function SubscriptionPage() {
     );
   }
 
-  if (error || !data) {
+  if (!data) {
     return (
       <div className="p-8 text-center" dir="rtl">
-        <p className="text-red-600 font-bold mb-4">{error || 'فشل في تحميل البيانات'}</p>
+        <p className="text-red-600 font-bold mb-4">فشل في تحميل البيانات</p>
         <button
           onClick={fetchSubscriptionData}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -109,15 +168,33 @@ export default function SubscriptionPage() {
 
       {/* Current Status Banner if inactive */}
       {data.status !== 'active' && (
-        <div className="bg-yellow-50 border-2 border-yellow-200 p-6 rounded-3xl flex items-center gap-4">
-          <div className="w-12 h-12 bg-yellow-100 rounded-2xl flex items-center justify-center text-yellow-600">
+        <div className={`border-2 p-6 rounded-3xl flex items-center gap-4 ${
+          isNewSetup 
+            ? 'bg-blue-50 border-blue-200' 
+            : 'bg-yellow-50 border-yellow-200'
+        }`}>
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+            isNewSetup 
+              ? 'bg-blue-100 text-blue-600' 
+              : 'bg-yellow-100 text-yellow-600'
+          }`}>
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
           <div>
-            <h3 className="text-lg font-bold text-yellow-900">الدفع مطلوب لتفعيل الحساب</h3>
-            <p className="text-yellow-700">لا تتوفر فترة تجريبية حالياً. يرجى اختيار خطة والبدء فوراً للوصول لكافة مميزات العيادة.</p>
+            <h3 className={`text-lg font-bold ${
+              isNewSetup 
+                ? 'text-blue-900' 
+                : 'text-yellow-900'
+            }`}>
+              {isNewSetup ? 'تم حفظ بيانات العيادة بنجاح!' : 'الدفع مطلوب لتفعيل الحساب'}
+            </h3>
+            <p className={isNewSetup ? 'text-blue-700' : 'text-yellow-700'}>
+              {isNewSetup 
+                ? 'الآن يرجى اختيار خطة الاشتراك المناسبة لعيادتك للبدء فوراً.' 
+                : 'لا تتوفر فترة تجريبية حالياً. يرجى اختيار خطة والبدء فوراً للوصول لكافة مميزات العيادة.'}
+            </p>
           </div>
         </div>
       )}
@@ -144,7 +221,7 @@ export default function SubscriptionPage() {
               ))}
             </ul>
             <button
-              disabled={isProcessing}
+              disabled={isProcessing || data.currentPlan === plan.id}
               onClick={() => handlePayment(plan.id)}
               className={`w-full py-4 rounded-2xl font-bold transition-all ${
                 data.currentPlan === plan.id 
@@ -159,43 +236,45 @@ export default function SubscriptionPage() {
       </div>
 
       {/* Action Buttons */}
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">الإجراءات</h3>
-        <div className="flex flex-wrap gap-3">
-          <a
-            href="/dashboard/clinic/subscription/upgrade"
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors"
-          >
-            ترقية الخطة
-          </a>
-          <a
-            href="/dashboard/clinic/subscription/cancel"
-            className="px-6 py-3 bg-red-100 text-red-600 rounded-lg font-bold hover:bg-red-200 transition-colors"
-          >
-            إلغاء الاشتراك
-          </a>
+      {data.status === 'active' && (
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+          <h3 className="text-xl font-bold text-gray-900 mb-4">الإجراءات</h3>
+          <div className="flex flex-wrap gap-3">
+            <a
+              href="/dashboard/clinic/subscription/upgrade"
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors"
+            >
+              ترقية الخطة
+            </a>
+            <a
+              href="/dashboard/clinic/subscription/cancel"
+              className="px-6 py-3 bg-red-100 text-red-600 rounded-lg font-bold hover:bg-red-200 transition-colors"
+            >
+              إلغاء الاشتراك
+            </a>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Billing History Table */}
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-50">
-          <h3 className="text-xl font-bold text-gray-900">سجل المدفوعات</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-right">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-sm">
-                <th className="px-6 py-4 font-bold">رقم الفاتورة</th>
-                <th className="px-6 py-4 font-bold">التاريخ</th>
-                <th className="px-6 py-4 font-bold">المبلغ</th>
-                <th className="px-6 py-4 font-bold">الحالة</th>
-                <th className="px-6 py-4 font-bold">الإجراء</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {data.billingHistory.length > 0 ? (
-                data.billingHistory.map((invoice) => (
+      {data.billingHistory.length > 0 && (
+        <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-50">
+            <h3 className="text-xl font-bold text-gray-900">سجل المدفوعات</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-right">
+              <thead>
+                <tr className="bg-gray-50 text-gray-500 text-sm">
+                  <th className="px-6 py-4 font-bold">رقم الفاتورة</th>
+                  <th className="px-6 py-4 font-bold">التاريخ</th>
+                  <th className="px-6 py-4 font-bold">المبلغ</th>
+                  <th className="px-6 py-4 font-bold">الحالة</th>
+                  <th className="px-6 py-4 font-bold">الإجراء</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {data.billingHistory.map((invoice) => (
                   <tr key={invoice.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4 font-bold text-gray-900">{invoice.number}</td>
                     <td className="px-6 py-4 text-gray-600">{formatDate(new Date(invoice.date))}</td>
@@ -213,16 +292,12 @@ export default function SubscriptionPage() {
                       <button className="text-blue-600 font-bold hover:underline text-sm">تحميل PDF</button>
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">لا يوجد سجل مدفوعات حالياً</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
