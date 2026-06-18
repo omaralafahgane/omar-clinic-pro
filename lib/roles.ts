@@ -5,7 +5,10 @@ export type Permission =
   | 'invoices.view' | 'invoices.create' | 'invoices.edit' | 'invoices.delete'
   | 'appointments.view' | 'appointments.create' | 'appointments.edit'
   | 'settings.view' | 'settings.edit'
-  | 'reports.view';
+  | 'reports.view'
+  | 'doctors.view' | 'doctors.create' | 'doctors.edit' | 'doctors.delete'
+  | 'inventory.view' | 'inventory.create' | 'inventory.edit' | 'inventory.delete'
+  | 'prescriptions.view' | 'prescriptions.create' | 'prescriptions.edit' | 'prescriptions.delete';
 
 export const ROLES = {
   OWNER: "owner",
@@ -30,6 +33,18 @@ export const PERMISSIONS = {
   SETTINGS_READ: "settings.view",
   SETTINGS_UPDATE: "settings.edit",
   REPORTS_READ: "reports.view",
+  DOCTORS_READ: "doctors.view",
+  DOCTORS_CREATE: "doctors.create",
+  DOCTORS_UPDATE: "doctors.edit",
+  DOCTORS_DELETE: "doctors.delete",
+  INVENTORY_READ: "inventory.view",
+  INVENTORY_CREATE: "inventory.create",
+  INVENTORY_UPDATE: "inventory.edit",
+  INVENTORY_DELETE: "inventory.delete",
+  PRESCRIPTIONS_READ: "prescriptions.view",
+  PRESCRIPTIONS_CREATE: "prescriptions.create",
+  PRESCRIPTIONS_UPDATE: "prescriptions.edit",
+  PRESCRIPTIONS_DELETE: "prescriptions.delete",
 };
 
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -48,6 +63,18 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.SETTINGS_READ,
     PERMISSIONS.SETTINGS_UPDATE,
     PERMISSIONS.REPORTS_READ,
+    PERMISSIONS.DOCTORS_READ,
+    PERMISSIONS.DOCTORS_CREATE,
+    PERMISSIONS.DOCTORS_UPDATE,
+    PERMISSIONS.DOCTORS_DELETE,
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.INVENTORY_CREATE,
+    PERMISSIONS.INVENTORY_UPDATE,
+    PERMISSIONS.INVENTORY_DELETE,
+    PERMISSIONS.PRESCRIPTIONS_READ,
+    PERMISSIONS.PRESCRIPTIONS_CREATE,
+    PERMISSIONS.PRESCRIPTIONS_UPDATE,
+    PERMISSIONS.PRESCRIPTIONS_DELETE,
   ],
   [ROLES.ADMIN]: [
     PERMISSIONS.PATIENT_READ,
@@ -61,6 +88,15 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.SETTINGS_READ,
     PERMISSIONS.SETTINGS_UPDATE,
     PERMISSIONS.REPORTS_READ,
+    PERMISSIONS.DOCTORS_READ,
+    PERMISSIONS.DOCTORS_CREATE,
+    PERMISSIONS.DOCTORS_UPDATE,
+    PERMISSIONS.INVENTORY_READ,
+    PERMISSIONS.INVENTORY_CREATE,
+    PERMISSIONS.INVENTORY_UPDATE,
+    PERMISSIONS.PRESCRIPTIONS_READ,
+    PERMISSIONS.PRESCRIPTIONS_CREATE,
+    PERMISSIONS.PRESCRIPTIONS_UPDATE,
   ],
   [ROLES.DOCTOR]: [
     PERMISSIONS.PATIENT_READ,
@@ -70,6 +106,9 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.APPOINTMENT_CREATE,
     PERMISSIONS.APPOINTMENT_UPDATE,
     PERMISSIONS.REPORTS_READ,
+    PERMISSIONS.PRESCRIPTIONS_READ,
+    PERMISSIONS.PRESCRIPTIONS_CREATE,
+    PERMISSIONS.PRESCRIPTIONS_UPDATE,
   ],
   [ROLES.RECEPTIONIST]: [
     PERMISSIONS.PATIENT_READ,

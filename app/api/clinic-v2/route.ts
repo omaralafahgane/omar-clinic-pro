@@ -70,6 +70,22 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
+    // After clinic creation/update, check subscription status
+    // If no subscription exists, return 402 to trigger payment page
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('clinic_id', finalClinic.id)
+      .maybeSingle();
+    
+    // If no subscription, return 402 Payment Required to trigger subscription page
+    if (!subscription) {
+      return NextResponse.json(
+        { success: true, data: finalClinic, requiresPayment: true },
+        { status: 402 }
+      );
+    }
+    
     return NextResponse.json({ success: true, data: finalClinic });
   } catch (error: any) {
     console.error("Clinic PATCH Error:", error);

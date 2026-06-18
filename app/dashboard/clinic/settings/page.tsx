@@ -56,9 +56,8 @@ export default function ClinicSettingsPage() {
 
       const responseData = await response.json();
 
-      if (response.ok && responseData.success) {
+      if ((response.ok || response.status === 402) && responseData.success) {
         toast.success('تم حفظ البيانات بنجاح! جاري الانتقال لصفحة الاشتراك...');
-        // FORCE REDIRECT TO SUBSCRIPTION
         setTimeout(() => {
           window.location.href = '/dashboard/clinic/subscription';
         }, 1500);

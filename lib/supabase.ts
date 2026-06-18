@@ -660,3 +660,115 @@ export const rolesDbHelpers = {
 // Update Backward Compatibility exports
 export const rolesDb = rolesDbHelpers;
 export const activityLogsDb = activityLogsDbHelpers;
+
+// ============================================================================
+// INVENTORY HELPERS
+// ============================================================================
+export const inventoryDbHelpers = {
+  getItems: async (clinicId: string) => {
+    try {
+      if (!supabase) return { success: true, data: [] };
+      const { data, error } = await supabase
+        .from("inventory_items")
+        .select("*")
+        .eq("clinic_id", clinicId)
+        .is("deleted_at", null)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error fetching inventory items:", error);
+      return { success: false, error };
+    }
+  },
+  createItem: async (clinicId: string, data: any) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { data: item, error } = await supabase
+        .from("inventory_items")
+        .insert([{ ...data, clinic_id: clinicId }])
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data: item };
+    } catch (error) {
+      console.error("Error creating inventory item:", error);
+      return { success: false, error };
+    }
+  },
+  updateStock: async (clinicId: string, itemId: string, quantity: number, type: 'in' | 'out' | 'adjustment', reason: string, userId: string) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      
+      // 1. Create transaction
+      const { error: transError } = await supabase
+        .from("inventory_transactions")
+        .insert([{
+          clinic_id: clinicId,
+          item_id: itemId,
+          transaction_type: type,
+          quantity: quantity,
+          reason: reason,
+          performed_by: userId
+        }]);
+      if (transError) throw transError;
+
+      // 2. Update item stock level
+      const { data: item } = await supabase.from("inventory_items").select("current_stock_level").eq("id", itemId).single();
+      const newStock = type === 'in' ? (item?.current_stock_level || 0) + quantity : (item?.current_stock_level || 0) - quantity;
+      
+      const { data: updatedItem, error: updateError } = await supabase
+        .from("inventory_items")
+        .update({ current_stock_level: newStock, updated_at: new Date().toISOString() })
+        .eq("id", itemId)
+        .select()
+        .single();
+      
+      if (updateError) throw updateError;
+      return { success: true, data: updatedItem };
+    } catch (error) {
+      console.error("Error updating stock:", error);
+      return { success: false, error };
+    }
+  }
+};
+
+// ============================================================================
+// PRESCRIPTION HELPERS
+// ============================================================================
+export const prescriptionsDbHelpers = {
+  create: async (clinicId: string, data: any) => {
+    try {
+      if (!supabase) return { success: false, error: "Database not configured" };
+      const { data: prescription, error } = await supabase
+        .from("prescriptions")
+        .insert([{ ...data, clinic_id: clinicId }])
+        .select()
+        .single();
+      if (error) throw error;
+      return { success: true, data: prescription };
+    } catch (error) {
+      console.error("Error creating prescription:", error);
+      return { success: false, error };
+    }
+  },
+  findByPatient: async (patientId: string) => {
+    try {
+      if (!supabase) return { success: true, data: [] };
+      const { data, error } = await supabase
+        .from("prescriptions")
+        .select("*, doctor:doctors(first_name, last_name)")
+        .eq("patient_id", patientId)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error finding patient prescriptions:", error);
+      return { success: false, error };
+    }
+  }
+};
+
+export const inventoryDb = inventoryDbHelpers;
+export const prescriptionsDb = prescriptionsDbHelpers;

@@ -104,10 +104,15 @@ export async function POST(req: Request) {
               clinic_id: clinicId,
               phone,
               is_active: true,
+              role: roleName // Sync role string directly for faster access
             },
           ])
           .select()
           .single();
+
+        // Sync to Clerk Public Metadata for frontend role checks
+        // Note: This requires the Clerk SDK which is typically used in server actions
+        // but here we can rely on the webhook to keep Supabase as the source of truth.
 
         if (error) {
           throw error;

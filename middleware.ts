@@ -24,8 +24,9 @@ export default clerkMiddleware(async (auth, request) => {
     return (await auth()).redirectToSignIn();
   }
 
-  // 3. ALLOW EVERYTHING ELSE - Let page-level logic handle the rest
-  // This prevents the forced redirect to settings page
+  // We use a light touch here and let the layout/page level handle clinic and subscription checks
+  // This avoids circular redirects and allows API calls to function correctly
+  
   return NextResponse.next();
 });
 
