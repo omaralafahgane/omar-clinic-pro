@@ -18,6 +18,7 @@
     "@radix-ui/react-dropdown-menu": "^2.1.2",
     "@radix-ui/react-tabs": "^1.1.1",
     "@stytch/nextjs": "^22.0.9",
+    "@stytch/react": "^20.0.9",
     "@stytch/vanilla-js": "^6.0.9",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.47.10",

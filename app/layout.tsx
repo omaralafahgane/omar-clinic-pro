@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { StytchProvider } from "@stytch/nextjs";
-import { createStytchUIClient } from "@stytch/nextjs/ui";
+import { StytchProvider, createStytchUIClient } from "@stytch/nextjs";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "sonner";
 import "./globals.css";
