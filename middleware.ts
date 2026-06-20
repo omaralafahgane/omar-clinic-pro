@@ -25,22 +25,18 @@ export default clerkMiddleware(async (auth, request) => {
     return (await auth()).redirectToSignIn();
   }
 
-  // 3. Check for approval status in metadata
-  const publicMetadata = sessionClaims?.metadata as any;
-  const approvalStatus = publicMetadata?.approval_status;
-  
-  // Use sessionClaims for email or userId
-  // Clerk session claims often have email or we can use userId directly
-  const userEmail = (sessionClaims as any)?.email;
-
-  // Debug logs (visible in Vercel logs)
-  console.log("Middleware check:", { userId, userEmail, approvalStatus });
-
-  // Hardcoded override for the main admin in middleware
-  // We use both email and a common pattern for super admin IDs if possible
-  if (userEmail === "omaralblack@gmail.com" || userId === "user_2tvrCaJBV8I6gabDLa4YCL") {
+  // 3. Hardcoded override for admin users - bypass approval check entirely
+  // This ensures the main admin can always access the dashboard regardless of metadata
+  if (userId === "user_2tvrCaJBV8I6gabDLa4YCL") {
     return NextResponse.next();
   }
+
+  // 4. Check for approval status in metadata
+  const publicMetadata = sessionClaims?.metadata as any;
+  const approvalStatus = publicMetadata?.approval_status;
+
+  // Debug logs (visible in Vercel logs)
+  console.log("Middleware check:", { userId, approvalStatus });
 
   // If status is not approved, redirect to waiting page
   if (approvalStatus !== "approved" && !request.nextUrl.pathname.startsWith("/waiting-approval")) {
