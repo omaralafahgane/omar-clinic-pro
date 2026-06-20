@@ -22,7 +22,12 @@ export default function SignUpPage() {
             routing="path"
             path="/sign-up"
             signInUrl="/login"
-            afterSignUpUrl="/waiting-approval"
+            // ✅ FIX: Redirect to /dashboard after sign-up.
+            // The dashboard page checks approval_status from Supabase and redirects
+            // to /waiting-approval if pending, or to the correct dashboard if approved.
+            // This way, invited users (who are pre-approved) go directly to their dashboard,
+            // while self-registered users are redirected to waiting-approval automatically.
+            afterSignUpUrl="/dashboard"
             appearance={{
               elements: {
                 rootBox: "w-full",

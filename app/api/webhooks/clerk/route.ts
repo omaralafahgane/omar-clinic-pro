@@ -5,6 +5,7 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { clerkClient } from "@clerk/nextjs/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { rolesDb, clinicsDbHelpers, activityLogsDb } from "@/lib/supabase";
 import { emailService } from "@/lib/resend";
@@ -114,12 +115,27 @@ export async function POST(req: Request) {
           .select()
           .single();
 
-        // Sync to Clerk Public Metadata for frontend role checks
-        // Note: This requires the Clerk SDK which is typically used in server actions
-        // but here we can rely on the webhook to keep Supabase as the source of truth.
-
         if (error) {
           throw error;
+        }
+
+        // ✅ CRITICAL FIX: Sync approval_status and role to Clerk Public Metadata
+        // This ensures the middleware reads the correct status from session claims
+        // without needing a manual token refresh from the user.
+        try {
+          const client = await clerkClient();
+          await client.users.updateUser(id, {
+            publicMetadata: {
+              ...((public_metadata as object) || {}),
+              role: roleName,
+              approval_status: approvalStatus,
+              clinic_id: clinicId,
+            },
+          });
+          console.log(`✅ Clerk metadata synced for user: ${email} (approval_status: ${approvalStatus})`);
+        } catch (clerkError) {
+          // Non-fatal: log but don't fail the webhook
+          console.error("⚠️ Failed to sync Clerk metadata (non-fatal):", clerkError);
         }
 
         // Log user creation
