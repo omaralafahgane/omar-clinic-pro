@@ -52,7 +52,7 @@ export default function ClinicDashboardLayout({
         // NEW FLOW: We don't force setup for normal users anymore.
         // Only show setup alert if user IS an admin and has NO clinic.
         if (data.isAdmin && (res.status === 206 || data.requiresSetup)) {
-          setShowSetupAlert(true);
+          setShowSetupAlert(false); // Force false to be safe
         } else if (res.status === 402 || data.requiresPayment) {
           // Keep payment alert if subscription is needed
           setShowPaymentAlert(true);
@@ -98,38 +98,7 @@ export default function ClinicDashboardLayout({
         </div>
       )}
 
-      {/* Full Screen Setup Required Overlay */}
-      {showSetupAlert && !pathname.includes("/settings") && (
-        <div className="fixed inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 text-center">
-          <div className="max-w-md bg-white dark:bg-gray-800 p-10 rounded-[40px] shadow-2xl border border-gray-100 dark:border-gray-700">
-            <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/30 rounded-3xl flex items-center justify-center mx-auto mb-6 text-blue-600">
-              <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </div>
-            <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-4">
-              {isAdmin ? "خطوة واحدة متبقية!" : "بانتظار تخصيص العيادة"}
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
-              {isAdmin 
-                ? "يجب عليك إنشاء ملف العيادة وإدخال البيانات الأساسية لتتمكن من استخدام كافة مميزات Omar Clinic Pro."
-                : "حسابك معتمد، ولكن لم يتم ربطك بعيادة بعد. يرجى التواصل مع مدير النظام لربط حسابك بالعيادة المناسبة."}
-            </p>
-            {isAdmin ? (
-              <Link 
-                href="/dashboard/clinic/settings"
-                className="block w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
-              >
-                إنشاء ملف العيادة الآن
-              </Link>
-            ) : (
-              <div className="bg-gray-100 p-4 rounded-2xl font-bold text-gray-700">
-                البريد الإلكتروني للمسؤول: omaralblack@gmail.com
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Setup Required Overlay Removed */}
       {/* Setup Alert Banner removed to prevent blocking users */}
 
       {/* Sidebar */}
