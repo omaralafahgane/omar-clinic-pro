@@ -14,17 +14,27 @@ export default function StytchLoginPage() {
     },
   };
 
+  const [origin, setOrigin] = React.useState("");
+
+  React.useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  if (!origin) {
+    return null; // Or a loading spinner
+  }
+
   const config = {
     products: [Products.emailMagicLinks, Products.oauth],
     emailMagicLinksOptions: {
-      loginRedirectURL: `${window.location.origin}/api/auth/stytch-callback`,
+      loginRedirectURL: `${origin}/api/auth/stytch-callback`,
       loginExpirationMinutes: 60,
-      signupRedirectURL: `${window.location.origin}/api/auth/stytch-callback`,
+      signupRedirectURL: `${origin}/api/auth/stytch-callback`,
       signupExpirationMinutes: 60,
     },
     oauthOptions: {
-      loginRedirectURL: `${window.location.origin}/api/auth/stytch-callback`,
-      signupRedirectURL: `${window.location.origin}/api/auth/stytch-callback`,
+      loginRedirectURL: `${origin}/api/auth/stytch-callback`,
+      signupRedirectURL: `${origin}/api/auth/stytch-callback`,
     },
   };
 
