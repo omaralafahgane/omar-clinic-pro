@@ -17,12 +17,19 @@ export default async function DashboardPage() {
   // التحقق من دور المستخدم وحالة الموافقة لتحديد لوحة التحكم المناسبة
   const { data: user } = await supabase
     .from("users")
-    .select("roles(name), approval_status")
+    .select("email, roles(name), approval_status")
     .eq("id", userId)
     .single();
 
-  const role = (user as any)?.roles?.name;
-  const approvalStatus = (user as any)?.approval_status;
+  const userEmail = (user as any)?.email;
+  let role = (user as any)?.roles?.name;
+  let approvalStatus = (user as any)?.approval_status;
+
+  // Hardcoded override for the main admin
+  if (userEmail === "omaralblack@gmail.com") {
+    role = "admin";
+    approvalStatus = "approved";
+  }
 
   // 1. Check approval status first
   if (approvalStatus !== "approved" && role !== "admin") {
