@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
+import { StytchProvider } from "@stytch/nextjs";
+import { createStytchUIClient } from "@stytch/nextjs/ui";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "sonner";
 import "./globals.css";
+
+const stytch = createStytchUIClient(process.env.NEXT_PUBLIC_STYTCH_PUBLIC_TOKEN || "");
 
 export const metadata: Metadata = {
   title: "Omar Clinic Pro - نظام إدارة العيادة الطبية",
@@ -26,10 +30,12 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body suppressHydrationWarning>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          {children}
-          <Toaster position="top-center" richColors />
-        </ThemeProvider>
+        <StytchProvider stytch={stytch}>
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            {children}
+            <Toaster position="top-center" richColors />
+          </ThemeProvider>
+        </StytchProvider>
       </body>
     </html>
   );

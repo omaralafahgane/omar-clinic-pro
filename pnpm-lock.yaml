@@ -29,6 +29,9 @@ importers:
       '@stytch/nextjs':
         specifier: ^22.0.9
         version: 22.0.9(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@stytch/vanilla-js':
+        specifier: ^6.0.9
+        version: 6.0.9
       '@supabase/ssr':
         specifier: ^0.5.2
         version: 0.5.2(@supabase/supabase-js@2.108.2)
@@ -938,6 +941,9 @@ packages:
     peerDependencies:
       react: '>= 17.0.2'
       react-dom: '>= 17.0.2'
+
+  '@stytch/vanilla-js@6.0.9':
+    resolution: {integrity: sha512-T5rca5csCMh80D2RtpJ76bVabg3obnDb35rygfAbkSL6dnrYI5UKImVZSo3HMy7L0/w7jWIM6VzJWbHeAwqnjg==}
 
   '@supabase/auth-js@2.108.2':
     resolution: {integrity: sha512-tNaQmBgodDZwgB40mRwVbxFy8IDYwjdpcZ0BYrWiwlULCSQoJj4QoG4zgJT7QRPXcqipefNOzvO/qAu4dF98ag==}
@@ -3704,6 +3710,8 @@ snapshots:
     dependencies:
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
+
+  '@stytch/vanilla-js@6.0.9': {}
 
   '@supabase/auth-js@2.108.2':
     dependencies:
