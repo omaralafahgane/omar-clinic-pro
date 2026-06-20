@@ -19,25 +19,31 @@ export default function Home() {
     setMessage(null);
 
     try {
+      console.log('Checking email:', email);
       const response = await fetch('/api/auth/check-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
 
+      console.log('Response status:', response.status);
       const data = await response.json();
+      console.log('Response data:', data);
 
       if (data.exists) {
         // User exists, redirect to login
+        console.log('User exists, redirecting to login...');
         router.push(`/login?email=${encodeURIComponent(email)}`);
       } else {
         // User does not exist, show account creation message
+        console.log('User does not exist.');
         setMessage({
           type: 'error',
           text: 'هذا البريد الإلكتروني غير مسجل لدينا. يرجى إنشاء حساب جديد للمتابعة.'
         });
       }
     } catch (err) {
+      console.error('Fetch error:', err);
       setMessage({
         type: 'error',
         text: 'حدث خطأ أثناء التحقق من البريد الإلكتروني. يرجى المحاولة مرة أخرى.'
