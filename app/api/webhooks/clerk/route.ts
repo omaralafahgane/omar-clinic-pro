@@ -282,23 +282,10 @@ export async function POST(req: Request) {
     // HANDLE INVITATION CREATED EVENT
     // ====================================================================
     if (evt.type === "invitation.created") {
-      const { email_address, id: invitationId } = evt.data;
-      
-      try {
-        // Construct the invite link (standard Clerk link or custom if needed)
-        // Note: In a real app, you might want to fetch the invitation object to get the actual link
-        // but Clerk usually sends the email itself. If "Delivered by Clerk" is OFF,
-        // we send it manually here.
-        const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/sign-up?invitation_id=${invitationId}`;
-        
-        await emailService.sendClerkInvitation(email_address, inviteLink);
-        
-        console.log(`✅ Custom invitation email sent to: ${email_address}`);
-        return NextResponse.json({ success: true }, { status: 200 });
-      } catch (error) {
-        console.error("❌ Error sending invitation email:", error);
-        return NextResponse.json({ error: "Failed to send invitation" }, { status: 500 });
-      }
+      // We let Clerk handle the email delivery for free.
+      // No custom Resend email here to avoid subscription costs.
+      console.log(`ℹ️ Invitation created for: ${evt.data.email_address}. Clerk will handle the email.`);
+      return NextResponse.json({ success: true }, { status: 200 });
     }
 
     // Handle other event types

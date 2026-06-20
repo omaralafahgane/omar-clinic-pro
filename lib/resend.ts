@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 
 // Resend Email Configuration
 export const resendConfig = {
-  apiKey: process.env.RESEND_API_KEY || "re_FFBAQTha_MkymnPQFffppC9Y5BCQyLwsW",
+  apiKey: process.env.RESEND_API_KEY || "",
   fromEmail: "Omar Clinic Pro <noreply@omarclinicp.com>",
 };
 
