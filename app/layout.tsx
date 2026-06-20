@@ -6,7 +6,8 @@ import { Toaster } from "sonner";
 import "./globals.css";
 
 const stytchToken = process.env.NEXT_PUBLIC_STYTCH_PUBLIC_TOKEN;
-const stytch = stytchToken ? createStytchUIClient(stytchToken) : null;
+// Temporarily disabling Stytch UI client during build to avoid toJSON errors
+const stytch = (stytchToken && typeof window !== 'undefined') ? createStytchUIClient(stytchToken) : null;
 
 export const metadata: Metadata = {
   title: "Omar Clinic Pro - نظام إدارة العيادة الطبية",
