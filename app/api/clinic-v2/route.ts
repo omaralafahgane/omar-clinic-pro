@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { supabaseAdmin as supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   try {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data: user } = await supabase.from("users").select("clinic_id").eq("id", userId).maybeSingle();
+    const { data: user } = await supabaseAdmin.from("users").select("clinic_id").eq("id", userId).maybeSingle();
     
     if (!user?.clinic_id) {
       return NextResponse.json({ requiresSetup: true });
     }
 
-    const { data: clinic } = await supabase.from("clinics").select("*").eq("id", user.clinic_id).maybeSingle();
+    const { data: clinic } = await supabaseAdmin.from("clinics").select("*").eq("id", user.clinic_id).maybeSingle();
     if (!clinic) return NextResponse.json({ requiresSetup: true });
 
     return NextResponse.json({ success: true, data: clinic });
@@ -47,8 +47,8 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // 1. Get or Create user's record in Supabase
-    let { data: user, error: userError } = await supabase
+    // 1. Get or Create user's record in Supabase using ADMIN client
+    let { data: user, error: userError } = await supabaseAdmin
       .from("users")
       .select("clinic_id, id")
       .eq("id", userId)
@@ -57,15 +57,15 @@ export async function PATCH(request: NextRequest) {
     if (userError) {
       console.error("Error fetching user:", userError);
       return NextResponse.json(
-        { error: "Failed to fetch user data" },
+        { error: "Failed to fetch user data: " + userError.message },
         { status: 500 }
       );
     }
 
-    // If user doesn't exist in Supabase (Webhook failed), create them now
+    // If user doesn't exist in Supabase (Webhook failed), create them now using ADMIN client
     if (!user) {
       console.log("User not found in Supabase, creating from Clerk session...");
-      const { data: newUser, error: createError } = await supabase
+      const { data: newUser, error: createError } = await supabaseAdmin
         .from("users")
         .insert([{
           id: userId,
@@ -82,7 +82,7 @@ export async function PATCH(request: NextRequest) {
       if (createError) {
         console.error("Error auto-creating user:", createError);
         return NextResponse.json(
-          { error: "Failed to initialize user account" },
+          { error: "Failed to initialize user account: " + createError.message },
           { status: 500 }
         );
       }
@@ -93,8 +93,8 @@ export async function PATCH(request: NextRequest) {
     let finalClinic;
 
     if (clinicId) {
-      // UPDATE EXISTING CLINIC
-      const { data, error } = await supabase
+      // UPDATE EXISTING CLINIC using ADMIN client
+      const { data, error } = await supabaseAdmin
         .from("clinics")
         .update({
           name,
@@ -119,8 +119,8 @@ export async function PATCH(request: NextRequest) {
       }
       finalClinic = data;
     } else {
-      // CREATE NEW CLINIC
-      const { data, error } = await supabase
+      // CREATE NEW CLINIC using ADMIN client
+      const { data, error } = await supabaseAdmin
         .from("clinics")
         .insert([{
           name,
@@ -144,8 +144,8 @@ export async function PATCH(request: NextRequest) {
       }
       finalClinic = data;
 
-      // LINK CLINIC TO USER
-      const { error: linkError } = await supabase
+      // LINK CLINIC TO USER using ADMIN client
+      const { error: linkError } = await supabaseAdmin
         .from("users")
         .update({ clinic_id: finalClinic.id, role: 'owner' })
         .eq("id", userId);
@@ -153,14 +153,14 @@ export async function PATCH(request: NextRequest) {
       if (linkError) {
         console.error("Error linking clinic to user:", linkError);
         return NextResponse.json(
-          { error: "Failed to link clinic to user" },
+          { error: "Failed to link clinic to user: " + linkError.message },
           { status: 500 }
         );
       }
     }
 
-    // Check for subscription
-    const { data: subscription } = await supabase
+    // Check for subscription using ADMIN client
+    const { data: subscription } = await supabaseAdmin
       .from('subscriptions')
       .select('*')
       .eq('clinic_id', finalClinic.id)
