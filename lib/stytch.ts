@@ -1,12 +1,15 @@
 import * as stytch from 'stytch';
 
-const client = new stytch.Client({
-  project_id: process.env.STYTCH_PROJECT_ID || '',
-  secret: process.env.STYTCH_SECRET || '',
-  env: process.env.STYTCH_PROJECT_ENV === 'live' ? stytch.envs.live : stytch.envs.test,
-});
+const projectId = process.env.STYTCH_PROJECT_ID;
+const secret = process.env.STYTCH_SECRET;
 
-export const stytchClient = client;
+export const stytchClient = (projectId && secret) 
+  ? new stytch.Client({
+      project_id: projectId,
+      secret: secret,
+      env: process.env.STYTCH_PROJECT_ENV === 'live' ? stytch.envs.live : stytch.envs.test,
+    })
+  : null as unknown as stytch.Client;
 
 // Helper to sync Stytch user with Supabase
 export const syncStytchUser = async (stytchUserId: string, email: string) => {

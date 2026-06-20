@@ -5,7 +5,8 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const stytch = createStytchUIClient(process.env.NEXT_PUBLIC_STYTCH_PUBLIC_TOKEN || "");
+const stytchToken = process.env.NEXT_PUBLIC_STYTCH_PUBLIC_TOKEN;
+const stytch = stytchToken ? createStytchUIClient(stytchToken) : null;
 
 export const metadata: Metadata = {
   title: "Omar Clinic Pro - نظام إدارة العيادة الطبية",
@@ -29,12 +30,19 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body suppressHydrationWarning>
-        <StytchProvider stytch={stytch}>
+        {stytch ? (
+          <StytchProvider stytch={stytch}>
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+              {children}
+              <Toaster position="top-center" richColors />
+            </ThemeProvider>
+          </StytchProvider>
+        ) : (
           <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
             {children}
             <Toaster position="top-center" richColors />
           </ThemeProvider>
-        </StytchProvider>
+        )}
       </body>
     </html>
   );
