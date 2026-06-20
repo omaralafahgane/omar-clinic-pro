@@ -28,10 +28,17 @@ export default clerkMiddleware(async (auth, request) => {
   // 3. Check for approval status in metadata
   const publicMetadata = sessionClaims?.metadata as any;
   const approvalStatus = publicMetadata?.approval_status;
-  const userEmail = sessionClaims?.email as string;
+  
+  // Use sessionClaims for email or userId
+  // Clerk session claims often have email or we can use userId directly
+  const userEmail = (sessionClaims as any)?.email;
+
+  // Debug logs (visible in Vercel logs)
+  console.log("Middleware check:", { userId, userEmail, approvalStatus });
 
   // Hardcoded override for the main admin in middleware
-  if (userEmail === "omaralblack@gmail.com") {
+  // We use both email and a common pattern for super admin IDs if possible
+  if (userEmail === "omaralblack@gmail.com" || userId === "user_2tvrCaJBV8I6gabDLa4YCL") {
     return NextResponse.next();
   }
 
