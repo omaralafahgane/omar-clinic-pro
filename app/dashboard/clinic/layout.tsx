@@ -15,6 +15,8 @@ export default function ClinicDashboardLayout({
   const router = useRouter();
   const [showSetupAlert, setShowSetupAlert] = useState(false);
   const [showPaymentAlert, setShowPaymentAlert] = useState(false);
+  const [isApproved, setIsApproved] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [isCheckingSetup, setIsCheckingSetup] = useState(true);
 
   const navItems = [
@@ -34,14 +36,23 @@ export default function ClinicDashboardLayout({
       if (!isLoaded) return;
 
       try {
-        const res = await fetch("/api/clinic");
+        const res = await fetch("/api/clinic-v2");
         
         // Handle different requirement states
         const data = await res.json().catch(() => ({}));
         
+        if (data.requiresApproval) {
+          setIsApproved(false);
+          router.push("/waiting-approval");
+          return;
+        }
+
+        setIsAdmin(data.isAdmin || false);
+
         if (res.status === 206 || data.requiresSetup) {
           setShowSetupAlert(true);
-          if (!pathname.includes("/settings")) {
+          // Only redirect to settings if user is admin
+          if (data.isAdmin && !pathname.includes("/settings")) {
             router.push("/dashboard/clinic/settings");
           }
         } else if (res.status === 402 || data.requiresPayment) {
@@ -97,16 +108,26 @@ export default function ClinicDashboardLayout({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
               </svg>
             </div>
-            <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-4">خطوة واحدة متبقية!</h2>
+            <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-4">
+              {isAdmin ? "خطوة واحدة متبقية!" : "بانتظار تخصيص العيادة"}
+            </h2>
             <p className="text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
-              يجب عليك إنشاء ملف العيادة وإدخال البيانات الأساسية لتتمكن من استخدام كافة مميزات Omar Clinic Pro.
+              {isAdmin 
+                ? "يجب عليك إنشاء ملف العيادة وإدخال البيانات الأساسية لتتمكن من استخدام كافة مميزات Omar Clinic Pro."
+                : "حسابك معتمد، ولكن لم يتم ربطك بعيادة بعد. يرجى التواصل مع مدير النظام لربط حسابك بالعيادة المناسبة."}
             </p>
-            <Link 
-              href="/dashboard/clinic/settings"
-              className="block w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
-            >
-              إنشاء ملف العيادة الآن
-            </Link>
+            {isAdmin ? (
+              <Link 
+                href="/dashboard/clinic/settings"
+                className="block w-full py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 dark:shadow-none"
+              >
+                إنشاء ملف العيادة الآن
+              </Link>
+            ) : (
+              <div className="bg-gray-100 p-4 rounded-2xl font-bold text-gray-700">
+                البريد الإلكتروني للمسؤول: omaralblack@gmail.com
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -14,15 +14,22 @@ export default async function DashboardPage() {
     process.env.SUPABASE_SERVICE_ROLE_KEY || ""
   );
 
-  // التحقق من دور المستخدم لتحديد لوحة التحكم المناسبة
+  // التحقق من دور المستخدم وحالة الموافقة لتحديد لوحة التحكم المناسبة
   const { data: user } = await supabase
     .from("users")
-    .select("roles(name)")
+    .select("roles(name), approval_status")
     .eq("id", userId)
     .single();
 
   const role = (user as any)?.roles?.name;
+  const approvalStatus = (user as any)?.approval_status;
 
+  // 1. Check approval status first
+  if (approvalStatus !== "approved" && role !== "admin") {
+    redirect("/waiting-approval");
+  }
+
+  // 2. Redirect based on role
   if (role === "admin") {
     redirect("/dashboard/admin");
   } else {

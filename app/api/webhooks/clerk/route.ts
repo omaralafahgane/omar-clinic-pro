@@ -77,8 +77,11 @@ export async function POST(req: Request) {
       try {
         // Determine role based on email
         let roleName = "owner";
+        let approvalStatus = "pending";
+        
         if (email === "omaralblack@gmail.com") {
           roleName = "admin";
+          approvalStatus = "approved";
         }
 
         // Get role from database
@@ -88,7 +91,7 @@ export async function POST(req: Request) {
           throw new Error(`${roleName} role not found`);
         }
 
-        // New users will start without a clinic and be redirected to setup
+        // New users will start without a clinic and must be approved by admin
         let clinicId = null;
 
         // Create user in Supabase using service role client (bypasses RLS)
@@ -104,7 +107,8 @@ export async function POST(req: Request) {
               clinic_id: clinicId,
               phone,
               is_active: true,
-              role: roleName // Sync role string directly for faster access
+              role: roleName, // Sync role string directly for faster access
+              approval_status: approvalStatus
             },
           ])
           .select()

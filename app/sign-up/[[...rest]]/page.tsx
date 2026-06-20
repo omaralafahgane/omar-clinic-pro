@@ -1,12 +1,8 @@
 "use client";
-import { SignIn } from "@clerk/nextjs";
+import { SignUp } from "@clerk/nextjs";
 import Link from "next/link";
 
-/**
- * LoginPage - Uses optional catch-all route [[...rest]] as required by Clerk
- * for multi-step flows (SSO callbacks, MFA, email verification, etc.)
- */
-export default function LoginPage() {
+export default function SignUpPage() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6" dir="rtl">
       {/* Home Link */}
@@ -18,15 +14,15 @@ export default function LoginPage() {
       </Link>
       <div className="w-full max-w-[450px] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
         <div className="p-8 text-center bg-blue-600">
-          <h1 className="text-3xl font-black text-white tracking-tight">Omar Clinic Pro</h1>
-          <p className="text-blue-100 text-sm mt-2 font-medium">نظام إدارة العيادات المتكامل</p>
+          <h1 className="text-3xl font-black text-white tracking-tight">إنشاء حساب جديد</h1>
+          <p className="text-blue-100 text-sm mt-2 font-medium">انضم إلى Omar Clinic Pro اليوم</p>
         </div>
         <div className="p-2 flex justify-center">
-          <SignIn 
+          <SignUp 
             routing="path"
-            path="/login"
-            signUpUrl="/sign-up"
-            afterSignInUrl="/dashboard"
+            path="/sign-up"
+            signInUrl="/login"
+            afterSignUpUrl="/waiting-approval"
             appearance={{
               elements: {
                 rootBox: "w-full",
@@ -49,8 +45,9 @@ export default function LoginPage() {
           />
         </div>
       </div>
-      <p className="mt-8 text-gray-400 text-xs">
-        &copy; 2026 Omar Clinic Pro - الحل الأمثل لإدارة عيادتك باحترافية
+      <p className="mt-8 text-gray-400 text-xs text-center">
+        بعد إنشاء الحساب، سيتم مراجعة طلبك من قبل الإدارة.<br/>
+        &copy; 2026 Omar Clinic Pro
       </p>
     </div>
   );

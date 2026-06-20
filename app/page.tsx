@@ -121,7 +121,7 @@ export default function Home() {
                     {message.type === 'error' ? '⚠️' : '✅'}
                     {message.text}
                     {message.type === 'error' && (
-                      <Link href="/login" className="underline mr-2 hover:text-red-700">إنشاء حساب الآن</Link>
+                      <Link href="/sign-up" className="underline mr-2 hover:text-red-700">إنشاء حساب الآن</Link>
                     )}
                   </div>
                 </div>

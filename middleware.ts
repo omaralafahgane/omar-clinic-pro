@@ -8,11 +8,12 @@ const isPublicRoute = createRouteMatcher([
   "/contact(.*)",
   "/api/webhooks/(.*)",
   "/api/auth/check-email(.*)",
-  "/auth-error(.*)"
+  "/auth-error(.*)",
+  "/waiting-approval(.*)"
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
-  const { userId } = await auth();
+  const { userId, sessionClaims } = await auth();
 
   // 1. If public route, allow access
   if (isPublicRoute(request)) {
@@ -24,8 +25,19 @@ export default clerkMiddleware(async (auth, request) => {
     return (await auth()).redirectToSignIn();
   }
 
-  // We use a light touch here and let the layout/page level handle clinic and subscription checks
-  // This avoids circular redirects and allows API calls to function correctly
+  // 3. Check for approval status in metadata
+  // We prefer checking metadata first for performance, then database if needed
+  const publicMetadata = sessionClaims?.metadata as any;
+  const approvalStatus = publicMetadata?.approval_status;
+
+  // If status is not approved, redirect to waiting page
+  if (approvalStatus !== "approved" && !request.nextUrl.pathname.startsWith("/waiting-approval")) {
+    // Exception for admin users if they are not marked as approved in metadata yet
+    // But usually the super admin is pre-approved
+    const url = request.nextUrl.clone();
+    url.pathname = "/waiting-approval";
+    return NextResponse.redirect(url);
+  }
   
   return NextResponse.next();
 });

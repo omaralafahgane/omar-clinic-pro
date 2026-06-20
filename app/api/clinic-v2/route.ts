@@ -7,10 +7,14 @@ export async function GET(request: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data: user } = await supabaseAdmin.from("users").select("clinic_id").eq("id", userId).maybeSingle();
+    const { data: user } = await supabaseAdmin.from("users").select("clinic_id, approval_status, role").eq("id", userId).maybeSingle();
     
+    if (user?.approval_status !== "approved") {
+      return NextResponse.json({ requiresApproval: true });
+    }
+
     if (!user?.clinic_id) {
-      return NextResponse.json({ requiresSetup: true });
+      return NextResponse.json({ requiresSetup: true, isAdmin: user?.role === "admin" });
     }
 
     const { data: clinic } = await supabaseAdmin.from("clinics").select("*").eq("id", user.clinic_id).maybeSingle();
@@ -50,7 +54,7 @@ export async function PATCH(request: NextRequest) {
     // 1. Get or Create user's record in Supabase using ADMIN client
     let { data: user, error: userError } = await supabaseAdmin
       .from("users")
-      .select("clinic_id, id")
+      .select("clinic_id, id, approval_status, role")
       .eq("id", userId)
       .maybeSingle();
 
@@ -89,7 +93,17 @@ export async function PATCH(request: NextRequest) {
       user = newUser;
     }
 
+    // Check approval status
+    if (user?.approval_status !== "approved") {
+      return NextResponse.json({ error: "Account waiting for approval", requiresApproval: true }, { status: 403 });
+    }
+
     let clinicId = user?.clinic_id;
+
+    // Only allow non-admin to update, not create
+    if (!clinicId && user?.role !== "admin") {
+      return NextResponse.json({ error: "Only administrators can create clinics" }, { status: 403 });
+    }
     let finalClinic;
 
     if (clinicId) {
