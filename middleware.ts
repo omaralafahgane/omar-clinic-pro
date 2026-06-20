@@ -26,14 +26,17 @@ export default clerkMiddleware(async (auth, request) => {
   }
 
   // 3. Check for approval status in metadata
-  // We prefer checking metadata first for performance, then database if needed
   const publicMetadata = sessionClaims?.metadata as any;
   const approvalStatus = publicMetadata?.approval_status;
+  const userEmail = sessionClaims?.email as string;
+
+  // Hardcoded override for the main admin in middleware
+  if (userEmail === "omaralblack@gmail.com") {
+    return NextResponse.next();
+  }
 
   // If status is not approved, redirect to waiting page
   if (approvalStatus !== "approved" && !request.nextUrl.pathname.startsWith("/waiting-approval")) {
-    // Exception for admin users if they are not marked as approved in metadata yet
-    // But usually the super admin is pre-approved
     const url = request.nextUrl.clone();
     url.pathname = "/waiting-approval";
     return NextResponse.redirect(url);
