@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 
 // Resend Email Configuration
 export const resendConfig = {
-  apiKey: process.env.RESEND_API_KEY || "",
+  apiKey: process.env.RESEND_API_KEY || "re_FFBAQTha_MkymnPQFffppC9Y5BCQyLwsW",
   fromEmail: "Omar Clinic Pro <noreply@omarclinicp.com>",
 };
 
@@ -161,6 +161,25 @@ export const emailTemplates = {
         <p>© 2026 Omar Clinic Pro. جميع الحقوق محفوظة.</p>
       </div>
     </div>`
+  }),
+  clerkInvitation: (data: { inviteLink: string }) => ({
+    subject: "دعوة للانضمام إلى Omar Clinic Pro",
+    html: `<div dir="rtl" style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;">
+      <div style="background-color: #0070f3; padding: 30px; text-align: center; color: white;">
+        <h1 style="margin: 0; font-size: 24px;">مرحباً بك في عيادتنا الرقمية</h1>
+      </div>
+      <div style="padding: 30px; line-height: 1.6; color: #374151;">
+        <p style="font-size: 18px; font-weight: bold;">لقد تمت دعوتك للانضمام إلى نظام Omar Clinic Pro.</p>
+        <p>يمكنك الآن البدء في استخدام النظام لإدارة المواعيد، السجلات الطبية، والتقارير بكل سهولة.</p>
+        <div style="text-align: center; margin: 40px 0;">
+          <a href="${data.inviteLink}" style="background-color: #0070f3; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 18px; display: inline-block;">قبول الدعوة وإنشاء حسابك</a>
+        </div>
+        <p style="color: #6b7280; font-size: 14px;">هذا الرابط صالح لفترة محدودة، يرجى استخدامه في أقرب وقت ممكن.</p>
+      </div>
+      <div style="background-color: #f9fafb; padding: 20px; text-align: center; color: #9ca3af; font-size: 12px; border-top: 1px solid #e5e7eb;">
+        <p>© 2026 Omar Clinic Pro. جميع الحقوق محفوظة.</p>
+      </div>
+    </div>`
   })
 };
 
@@ -226,4 +245,7 @@ export const emailService = {
     startDate: data.startDate,
     endDate: data.endDate
   }),
+
+  sendClerkInvitation: (email: string, inviteLink: string) =>
+    sendEmail(email, 'clerkInvitation', { inviteLink }),
 };

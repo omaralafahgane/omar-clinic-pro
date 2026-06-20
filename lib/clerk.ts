@@ -82,6 +82,23 @@ export const clerkUserManager = {
       return { success: false, error };
     }
   },
+
+  /**
+   * Create an invitation
+   */
+  createInvitation: async (email: string, metadata: any = {}) => {
+    try {
+      const invitation = await clerkClient.invitations.createInvitation({
+        emailAddress: email,
+        publicMetadata: metadata,
+        redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/sign-up`,
+      });
+      return { success: true, data: invitation };
+    } catch (error) {
+      console.error("Error creating invitation:", error);
+      return { success: false, error };
+    }
+  },
 };
 
 // ============================================================================

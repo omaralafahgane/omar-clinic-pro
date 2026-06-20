@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { rolesDb, clinicsDbHelpers, activityLogsDb } from "@/lib/supabase";
+import { emailService } from "@/lib/resend";
 
 // ============================================================================
 // WEBHOOK VERIFICATION
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
     // HANDLE USER CREATED EVENT
     // ====================================================================
     if (evt.type === "user.created") {
-      const { id, email_addresses, first_name, last_name, phone_numbers } =
+      const { id, email_addresses, first_name, last_name, phone_numbers, public_metadata } =
         evt.data;
 
       const email = email_addresses[0]?.email_address;
@@ -75,13 +76,13 @@ export async function POST(req: Request) {
       }
 
       try {
-        // Determine role based on email
-        let roleName = "owner";
-        let approvalStatus = "pending";
+        // Determine role and approval status
+        // If the user was invited, we can trust they are approved
+        let roleName = public_metadata?.role || "owner";
+        let approvalStatus = "approved"; // Since Admin invited/approved them in Clerk
         
         if (email === "omaralblack@gmail.com") {
           roleName = "admin";
-          approvalStatus = "approved";
         }
 
         // Get role from database
@@ -91,13 +92,12 @@ export async function POST(req: Request) {
           throw new Error(`${roleName} role not found`);
         }
 
-        // New users will start without a clinic and must be approved by admin
-        let clinicId = null;
+        let clinicId = public_metadata?.clinic_id || null;
 
-        // Create user in Supabase using service role client (bypasses RLS)
+        // Create user in Supabase
         const { data: user, error } = await supabaseAdmin
           .from("users")
-          .insert([
+          .upsert([
             {
               id,
               email,
@@ -107,10 +107,10 @@ export async function POST(req: Request) {
               clinic_id: clinicId,
               phone,
               is_active: true,
-              role: roleName, // Sync role string directly for faster access
+              role: roleName,
               approval_status: approvalStatus
             },
-          ])
+          ], { onConflict: 'email' })
           .select()
           .single();
 
@@ -275,6 +275,29 @@ export async function POST(req: Request) {
           { error: "Failed to delete user", details: String(error) },
           { status: 500 }
         );
+      }
+    }
+
+    // ====================================================================
+    // HANDLE INVITATION CREATED EVENT
+    // ====================================================================
+    if (evt.type === "invitation.created") {
+      const { email_address, id: invitationId } = evt.data;
+      
+      try {
+        // Construct the invite link (standard Clerk link or custom if needed)
+        // Note: In a real app, you might want to fetch the invitation object to get the actual link
+        // but Clerk usually sends the email itself. If "Delivered by Clerk" is OFF,
+        // we send it manually here.
+        const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/sign-up?invitation_id=${invitationId}`;
+        
+        await emailService.sendClerkInvitation(email_address, inviteLink);
+        
+        console.log(`✅ Custom invitation email sent to: ${email_address}`);
+        return NextResponse.json({ success: true }, { status: 200 });
+      } catch (error) {
+        console.error("❌ Error sending invitation email:", error);
+        return NextResponse.json({ error: "Failed to send invitation" }, { status: 500 });
       }
     }
 
