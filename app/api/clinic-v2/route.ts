@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-// import { supabaseAdmin as supabase } from "@/lib/supabase";
-
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
@@ -29,6 +27,8 @@ export async function PATCH(request: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+    const userDetails = await currentUser();
+
     // Validate request body
     let body;
     try {
@@ -47,10 +47,10 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // 1. Get user's current clinic_id
-    const { data: user, error: userError } = await supabase
+    // 1. Get or Create user's record in Supabase
+    let { data: user, error: userError } = await supabase
       .from("users")
-      .select("clinic_id")
+      .select("clinic_id, id")
       .eq("id", userId)
       .maybeSingle();
 
@@ -60,6 +60,33 @@ export async function PATCH(request: NextRequest) {
         { error: "Failed to fetch user data" },
         { status: 500 }
       );
+    }
+
+    // If user doesn't exist in Supabase (Webhook failed), create them now
+    if (!user) {
+      console.log("User not found in Supabase, creating from Clerk session...");
+      const { data: newUser, error: createError } = await supabase
+        .from("users")
+        .insert([{
+          id: userId,
+          email: userDetails?.emailAddresses[0]?.emailAddress || email,
+          first_name: userDetails?.firstName || "User",
+          last_name: userDetails?.lastName || "",
+          role: 'owner',
+          role_id: '4a1dd532-188f-46ae-981a-e517c6134fc5', // clinic_owner role ID
+          is_active: true
+        }])
+        .select()
+        .single();
+
+      if (createError) {
+        console.error("Error auto-creating user:", createError);
+        return NextResponse.json(
+          { error: "Failed to initialize user account" },
+          { status: 500 }
+        );
+      }
+      user = newUser;
     }
 
     let clinicId = user?.clinic_id;
@@ -124,39 +151,21 @@ export async function PATCH(request: NextRequest) {
         .eq("id", userId);
 
       if (linkError) {
-        console.error("Error linking clinic to user (update failed), trying upsert:", linkError);
-        // Try upsert if update fails
-        const { error: upsertError } = await supabase
-          .from("users")
-          .upsert({
-            id: userId,
-            clinic_id: finalClinic.id,
-            role: 'owner'
-          });
-
-        if (upsertError) {
-          console.error("Error linking clinic to user (upsert failed):", upsertError);
-          return NextResponse.json(
-            { error: "Failed to link clinic to user" },
-            { status: 500 }
-          );
-        }
+        console.error("Error linking clinic to user:", linkError);
+        return NextResponse.json(
+          { error: "Failed to link clinic to user" },
+          { status: 500 }
+        );
       }
     }
 
-    // After clinic creation/update, check subscription status
-    const { data: subscription, error: subError } = await supabase
+    // Check for subscription
+    const { data: subscription } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('clinic_id', finalClinic.id)
       .maybeSingle();
 
-    if (subError && subError.code !== 'PGRST116') {
-      console.error("Error checking subscription:", subError);
-      // Don't fail if subscription check fails, just proceed
-    }
-
-    // If no subscription, return 402 Payment Required to trigger subscription page
     if (!subscription) {
       return NextResponse.json(
         { success: true, data: finalClinic, requiresPayment: true },
