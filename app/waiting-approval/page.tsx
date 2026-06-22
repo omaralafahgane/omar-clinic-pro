@@ -12,10 +12,11 @@ export default function WaitingApprovalPage() {
   useEffect(() => {
     if (isLoaded && user) {
       const approvalStatus = user.publicMetadata.approval_status as string;
+      const userEmail = user.emailAddresses[0]?.emailAddress;
       setStatus(approvalStatus);
       
-      // If user is already approved, redirect to dashboard
-      if (approvalStatus === "approved") {
+      // FORCE BYPASS FOR OWNER
+      if (userEmail === "omaralblack@gmail.com" || approvalStatus === "approved") {
         router.push("/dashboard");
       }
     }
