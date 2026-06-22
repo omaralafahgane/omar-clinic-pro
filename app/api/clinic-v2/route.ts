@@ -7,9 +7,11 @@ export async function GET(request: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data: user } = await supabaseAdmin.from("users").select("clinic_id, approval_status, role").eq("id", userId).maybeSingle();
+    const { data: user } = await supabaseAdmin.from("users").select("email, clinic_id, approval_status, role").eq("id", userId).maybeSingle();
     
-    if (user?.approval_status !== "approved") {
+    const isOwner = user?.email === "omaralblack@gmail.com" || userId === "user_2tvrCaJBV8I6gabDLa4YCL";
+    
+    if (user?.approval_status !== "approved" && !isOwner) {
       return NextResponse.json({ requiresApproval: true });
     }
 
@@ -94,7 +96,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Check approval status
-    if (user?.approval_status !== "approved") {
+    const isOwner = user?.email === "omaralblack@gmail.com" || userId === "user_2tvrCaJBV8I6gabDLa4YCL";
+    if (user?.approval_status !== "approved" && !isOwner) {
       return NextResponse.json({ error: "Account waiting for approval", requiresApproval: true }, { status: 403 });
     }
 
