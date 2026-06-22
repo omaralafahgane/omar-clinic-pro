@@ -35,9 +35,15 @@ export default clerkMiddleware(async (auth, request) => {
   // 4. Check for approval status in metadata
   const publicMetadata = sessionClaims?.metadata as any;
   const approvalStatus = publicMetadata?.approval_status;
+  const userEmail = sessionClaims?.email;
 
   // Debug logs (visible in Vercel logs)
-  console.log("Middleware check:", { userId, approvalStatus });
+  console.log("Middleware check:", { userId, approvalStatus, userEmail });
+
+  // BYPASS FOR OWNER: If email is omaralblack@gmail.com, allow everything
+  if (userEmail === "omaralblack@gmail.com") {
+    return NextResponse.next();
+  }
 
   // If status is not approved, redirect to waiting page
   if (approvalStatus !== "approved" && !request.nextUrl.pathname.startsWith("/waiting-approval")) {
