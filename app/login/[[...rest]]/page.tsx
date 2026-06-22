@@ -26,7 +26,8 @@ export default function LoginPage() {
             routing="path"
             path="/login"
             signUpUrl="/sign-up"
-            afterSignInUrl="/dashboard"
+            fallbackRedirectUrl="/dashboard"
+            forceRedirectUrl="/dashboard"
             appearance={{
               elements: {
                 rootBox: "w-full",

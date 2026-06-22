@@ -27,7 +27,8 @@ export default function SignUpPage() {
             // to /waiting-approval if pending, or to the correct dashboard if approved.
             // This way, invited users (who are pre-approved) go directly to their dashboard,
             // while self-registered users are redirected to waiting-approval automatically.
-            afterSignUpUrl="/dashboard"
+            fallbackRedirectUrl="/dashboard"
+            forceRedirectUrl="/dashboard"
             appearance={{
               elements: {
                 rootBox: "w-full",
