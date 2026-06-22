@@ -7,11 +7,12 @@ import { Card } from '@/components/ui/card';
 
 interface Appointment {
   id: string;
-  date: string;
-  time: string;
-  title: string;
-  doctor: string;
-  status: 'scheduled' | 'completed' | 'cancelled';
+  start_time: string;
+  end_time: string;
+  patients?: { first_name: string; last_name: string };
+  doctors?: { first_name: string; last_name: string };
+  reason_for_visit: string;
+  status: 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled';
 }
 
 interface AppointmentCalendarProps {
@@ -61,7 +62,7 @@ export function AppointmentCalendar({
     if (!day) return false;
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     return appointments.some(app => {
-      const appDate = new Date(app.date);
+      const appDate = new Date(app.start_time);
       return (
         appDate.getDate() === day &&
         appDate.getMonth() === currentDate.getMonth() &&
@@ -74,7 +75,7 @@ export function AppointmentCalendar({
     if (!day) return [];
     const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
     return appointments.filter(app => {
-      const appDate = new Date(app.date);
+      const appDate = new Date(app.start_time);
       return (
         appDate.getDate() === day &&
         appDate.getMonth() === currentDate.getMonth() &&
@@ -186,27 +187,29 @@ export function AppointmentCalendar({
 
           {selectedDayAppointments.length > 0 ? (
             <div className="space-y-3">
-              {selectedDayAppointments.map(appointment => (
+                  {selectedDayAppointments.map(appointment => (
                 <button
                   key={appointment.id}
                   onClick={() => onAppointmentClick?.(appointment)}
-                  className="w-full p-3 text-right border rounded-lg hover:bg-blue-50 transition-colors"
+                  className="w-full p-3 text-right border rounded-xl hover:bg-blue-50 transition-all border-gray-100 shadow-sm mb-2"
                 >
-                  <p className="font-medium text-gray-900">{appointment.title}</p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {appointment.time}
+                  <p className="font-bold text-gray-900">{appointment.patients?.first_name} {appointment.patients?.last_name}</p>
+                  <p className="text-xs text-blue-600 font-medium mt-1">
+                    {new Date(appointment.start_time).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}
                   </p>
-                  <p className="text-sm text-gray-600">
-                    د. {appointment.doctor}
+                  <p className="text-xs text-gray-500">
+                    د. {appointment.doctors?.first_name} {appointment.doctors?.last_name}
                   </p>
                   <div className="mt-2">
                     <span className={`
-                      text-xs px-2 py-1 rounded
-                      ${appointment.status === 'scheduled' ? 'bg-blue-100 text-blue-800' : ''}
-                      ${appointment.status === 'completed' ? 'bg-green-100 text-green-800' : ''}
-                      ${appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' : ''}
+                      text-[10px] px-2 py-0.5 rounded-full font-bold border
+                      ${appointment.status === 'scheduled' ? 'bg-blue-50 text-blue-700 border-blue-100' : ''}
+                      ${appointment.status === 'confirmed' ? 'bg-green-50 text-green-700 border-green-100' : ''}
+                      ${appointment.status === 'completed' ? 'bg-gray-50 text-gray-700 border-gray-100' : ''}
+                      ${appointment.status === 'cancelled' ? 'bg-red-50 text-red-700 border-red-100' : ''}
                     `}>
                       {appointment.status === 'scheduled' ? 'مجدول' : 
+                       appointment.status === 'confirmed' ? 'مؤكد' :
                        appointment.status === 'completed' ? 'مكتمل' : 'ملغى'}
                     </span>
                   </div>

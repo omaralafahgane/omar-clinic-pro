@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { appointmentsDbHelpers, patientsDbHelpers, doctorsDbHelpers, clinicsDbHelpers } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { Modal, Alert, FormInput } from '@/components';
+import { AppointmentCalendar } from '@/components/calendar/AppointmentCalendar';
 
 export default function AppointmentsPage() {
   const [appointments, setAppointments] = useState<any[]>([]);
@@ -22,6 +23,7 @@ export default function AppointmentsPage() {
   const [clinicId, setClinicId] = useState<string>('');
   const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   const [newStatus, setNewStatus] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
 
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -70,7 +72,8 @@ export default function AppointmentsPage() {
     if (!clinicId) return;
     setLoading(true);
     try {
-      const filters: any = { date: selectedDate };
+      // If calendar view, we might want to load more than just one day
+      const filters: any = viewMode === 'table' ? { date: selectedDate } : {};
       if (filterStatus !== 'all') filters.status = filterStatus;
       
       const result = await appointmentsDbHelpers.findByClinic(clinicId, filters);
@@ -303,8 +306,30 @@ export default function AppointmentsPage() {
       {error && <div className="mb-6"><Alert type="error" message={error} onClose={() => setError(null)} /></div>}
       {success && <div className="mb-6"><Alert type="success" message={success} /></div>}
 
-      {/* Filters */}
-      <div className="mb-6 bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center">
+      {/* View Switcher & Filters */}
+      <div className="mb-6 flex flex-col gap-4">
+        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-gray-100 self-start">
+          <button 
+            onClick={() => setViewMode('table')}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-bold transition-all",
+              viewMode === 'table' ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            عرض الجدول
+          </button>
+          <button 
+            onClick={() => setViewMode('calendar')}
+            className={cn(
+              "px-4 py-2 rounded-lg text-sm font-bold transition-all",
+              viewMode === 'calendar' ? "bg-blue-600 text-white shadow-md" : "text-gray-500 hover:text-gray-700"
+            )}
+          >
+            عرض التقويم
+          </button>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-wrap gap-4 items-center">
         <div className="flex flex-col gap-1">
           <label className="text-xs font-bold text-gray-500">تاريخ اليوم</label>
           <input
@@ -336,10 +361,19 @@ export default function AppointmentsPage() {
         </div>
       </div>
 
-      {/* Appointments Table */}
-      <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-100">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-right">
+      {/* Appointments Content */}
+      {viewMode === 'calendar' ? (
+        <div className="bg-white p-6 rounded-2xl shadow-xl border border-gray-100">
+          <AppointmentCalendar 
+            appointments={appointments} 
+            onDateSelect={(date) => setSelectedDate(date.toISOString().split('T')[0])}
+            onAppointmentClick={(apt) => openEditModal(apt)}
+          />
+        </div>
+      ) : (
+        <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-100">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-right">
             <thead className="bg-gray-50/50">
               <tr>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">الوقت</th>
