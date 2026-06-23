@@ -1,9 +1,0 @@
-packages:
-  - '.'
-
-# Optimization for Cloudflare
-allowBuilds:
-  '@clerk/shared': true
-  esbuild: true
-  sharp: true
-  workerd: true
