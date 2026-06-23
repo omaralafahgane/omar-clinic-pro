@@ -28,7 +28,7 @@ export default clerkMiddleware(async (auth, request) => {
 
   // 3. Hardcoded override for admin users - bypass approval check entirely
   // This ensures the main admin can always access the dashboard regardless of metadata
-  if (userId === "user_2tvrCaJBV8I6gabDLa4YCL" || sessionClaims?.email === "omaralblack@gmail.com") {
+  if (userId === "user_3FOjbOk3hK1NlAfpJc6BYjrYutm" || sessionClaims?.email === "omaralblack@gmail.com") {
     return NextResponse.next();
   }
 
