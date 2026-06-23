@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
     const { data: user } = await supabaseAdmin.from("users").select("email, clinic_id, approval_status, role").eq("id", userId).maybeSingle();
     
-    const isOwner = user?.email === "omaralblack@gmail.com" || userId === "user_2tvrCaJBV8I6gabDLa4YCL";
+    const isOwner = user?.email === "omaralblack@gmail.com" || userId === "user_3FOjbOk3hK1NlAfpJc6BYjrYutm";
     
     if (user?.approval_status !== "approved" && !isOwner) {
       return NextResponse.json({ requiresApproval: true });
@@ -96,7 +96,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Check approval status
-    const isOwner = user?.email === "omaralblack@gmail.com" || userId === "user_2tvrCaJBV8I6gabDLa4YCL";
+    const isOwner = user?.email === "omaralblack@gmail.com" || userId === "user_3FOjbOk3hK1NlAfpJc6BYjrYutm";
     if (user?.approval_status !== "approved" && !isOwner) {
       return NextResponse.json({ error: "Account waiting for approval", requiresApproval: true }, { status: 403 });
     }

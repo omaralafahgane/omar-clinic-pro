@@ -26,7 +26,7 @@ export default async function DashboardPage() {
   let approvalStatus = (user as any)?.approval_status;
 
   // Hardcoded override for the main admin
-  if (userEmail === "omaralblack@gmail.com" || userId === "user_2tvrCaJBV8I6gabDLa4YCL") {
+  if (userEmail === "omaralblack@gmail.com" || userId === "user_3FOjbOk3hK1NlAfpJc6BYjrYutm") {
     role = "admin";
     approvalStatus = "approved";
   }
