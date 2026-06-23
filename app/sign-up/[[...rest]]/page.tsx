@@ -22,11 +22,7 @@ export default function SignUpPage() {
             routing="path"
             path="/sign-up"
             signInUrl="/login"
-            // ✅ FIX: Redirect to /dashboard after sign-up.
-            // The dashboard page checks approval_status from Supabase and redirects
-            // to /waiting-approval if pending, or to the correct dashboard if approved.
-            // This way, invited users (who are pre-approved) go directly to their dashboard,
-            // while self-registered users are redirected to waiting-approval automatically.
+            // Redirect to /dashboard after sign-up.
             fallbackRedirectUrl="/dashboard"
             forceRedirectUrl="/dashboard"
             appearance={{
@@ -52,7 +48,6 @@ export default function SignUpPage() {
         </div>
       </div>
       <p className="mt-8 text-gray-400 text-xs text-center">
-        بعد إنشاء الحساب، سيتم مراجعة طلبك من قبل الإدارة.<br/>
         &copy; 2026 Omar Clinic Pro
       </p>
     </div>

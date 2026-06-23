@@ -9,26 +9,20 @@ const isPublicRoute = createRouteMatcher([
   "/contact(.*)",
   "/api/webhooks/(.*)",
   "/api/auth/check-email(.*)",
-  "/auth-error(.*)",
-  "/waiting-approval(.*)"
+  "/auth-error(.*)"
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
   const { userId } = await auth();
 
-  // 1. If public route, allow access
   if (isPublicRoute(request)) {
     return NextResponse.next();
   }
 
-  // 2. Protect non-public routes
   if (!userId) {
     return (await auth()).redirectToSignIn();
   }
 
-  // SYSTEM UPDATE: Approval system has been disabled globally by owner request.
-  // All authenticated users are now allowed to access their respective dashboards.
-  
   return NextResponse.next();
 });
 

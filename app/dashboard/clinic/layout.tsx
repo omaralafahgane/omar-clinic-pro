@@ -41,11 +41,8 @@ export default function ClinicDashboardLayout({
         // Handle different requirement states
         const data = await res.json().catch(() => ({}));
         
-        if (data.requiresApproval) {
-          setIsApproved(false);
-          router.push("/waiting-approval");
-          return;
-        }
+        // Approval check removed globally by owner request
+        setIsApproved(true);
 
         setIsAdmin(data.isAdmin || false);
 
