@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
 export default async function DashboardPage() {
-  const { userId } = await auth();
+  const { userId, sessionClaims } = await auth();
 
   if (!userId) {
     redirect("/login");
@@ -14,29 +14,22 @@ export default async function DashboardPage() {
     process.env.SUPABASE_SERVICE_ROLE_KEY || ""
   );
 
-  // التحقق من دور المستخدم وحالة الموافقة لتحديد لوحة التحكم المناسبة
+  // التحقق من دور المستخدم لتحديد لوحة التحكم المناسبة
   const { data: user } = await supabase
     .from("users")
-    .select("email, roles(name), approval_status")
+    .select("email, role")
     .eq("id", userId)
     .single();
 
-  const userEmail = (user as any)?.email;
-  let role = (user as any)?.roles?.name;
-  let approvalStatus = (user as any)?.approval_status;
+  const userEmail = (user as any)?.email || sessionClaims?.email;
+  let role = (user as any)?.role;
 
-  // Hardcoded override for the main admin
+  // Hardcoded override for the main admin to ensure he always gets the admin dashboard
   if (userEmail === "omaralblack@gmail.com" || userId === "user_3FOjbOk3hK1NlAfpJc6BYjrYutm") {
     role = "admin";
-    approvalStatus = "approved";
   }
 
-  // 1. Check approval status first
-  if (approvalStatus !== "approved" && role !== "admin") {
-    redirect("/waiting-approval");
-  }
-
-  // 2. Redirect based on role
+  // Redirect based on role (Approval check removed)
   if (role === "admin") {
     redirect("/dashboard/admin");
   } else {

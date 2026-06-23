@@ -7,16 +7,14 @@ export async function GET(request: NextRequest) {
     const { userId } = await auth();
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { data: user } = await supabaseAdmin.from("users").select("email, clinic_id, approval_status, role").eq("id", userId).maybeSingle();
+    const { data: user } = await supabaseAdmin.from("users").select("email, clinic_id, role").eq("id", userId).maybeSingle();
     
     const isOwner = user?.email === "omaralblack@gmail.com" || userId === "user_3FOjbOk3hK1NlAfpJc6BYjrYutm";
     
-    if (user?.approval_status !== "approved" && !isOwner) {
-      return NextResponse.json({ requiresApproval: true });
-    }
+    // Approval check removed globally
 
     if (!user?.clinic_id) {
-      return NextResponse.json({ requiresSetup: true, isAdmin: user?.role === "admin" });
+      return NextResponse.json({ requiresSetup: true, isAdmin: user?.role === "admin" || isOwner });
     }
 
     const { data: clinic } = await supabaseAdmin.from("clinics").select("*").eq("id", user.clinic_id).maybeSingle();
@@ -35,7 +33,6 @@ export async function PATCH(request: NextRequest) {
 
     const userDetails = await currentUser();
 
-    // Validate request body
     let body;
     try {
       body = await request.json();
@@ -45,7 +42,6 @@ export async function PATCH(request: NextRequest) {
 
     const { name, email, phone, address, city, country, description } = body;
 
-    // Validate required fields
     if (!name || !email || !phone || !address || !city) {
       return NextResponse.json(
         { error: "Missing required fields: name, email, phone, address, city" },
@@ -53,10 +49,9 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // 1. Get or Create user's record in Supabase using ADMIN client
     let { data: user, error: userError } = await supabaseAdmin
       .from("users")
-      .select("clinic_id, id, approval_status, role")
+      .select("clinic_id, id, role, email")
       .eq("id", userId)
       .maybeSingle();
 
@@ -68,9 +63,7 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    // If user doesn't exist in Supabase (Webhook failed), create them now using ADMIN client
     if (!user) {
-      console.log("User not found in Supabase, creating from Clerk session...");
       const { data: newUser, error: createError } = await supabaseAdmin
         .from("users")
         .insert([{
@@ -79,46 +72,27 @@ export async function PATCH(request: NextRequest) {
           first_name: userDetails?.firstName || "User",
           last_name: userDetails?.lastName || "",
           role: 'owner',
-          role_id: '4a1dd532-188f-46ae-981a-e517c6134fc5', // clinic_owner role ID
-          is_active: true
+          role_id: '4a1dd532-188f-46ae-981a-e517c6134fc5',
+          is_active: true,
+          approval_status: 'approved'
         }])
         .select()
         .single();
 
       if (createError) {
-        console.error("Error auto-creating user:", createError);
-        return NextResponse.json(
-          { error: "Failed to initialize user account: " + createError.message },
-          { status: 500 }
-        );
+        return NextResponse.json({ error: "Failed to initialize user account" }, { status: 500 });
       }
       user = newUser;
     }
 
-    // Check approval status
-    const isOwner = user?.email === "omaralblack@gmail.com" || userId === "user_3FOjbOk3hK1NlAfpJc6BYjrYutm";
-    if (user?.approval_status !== "approved" && !isOwner) {
-      return NextResponse.json({ error: "Account waiting for approval", requiresApproval: true }, { status: 403 });
-    }
-
     let clinicId = user?.clinic_id;
-
-    // Only allow non-admin to update, not create
-    if (!clinicId && user?.role !== "admin") {
-      return NextResponse.json({ error: "Only administrators can create clinics" }, { status: 403 });
-    }
     let finalClinic;
 
     if (clinicId) {
-      // UPDATE EXISTING CLINIC using ADMIN client
       const { data, error } = await supabaseAdmin
         .from("clinics")
         .update({
-          name,
-          email,
-          phone,
-          address,
-          city,
+          name, email, phone, address, city,
           country: country || "الأردن",
           description,
           updated_at: new Date().toISOString()
@@ -127,24 +101,13 @@ export async function PATCH(request: NextRequest) {
         .select()
         .single();
 
-      if (error) {
-        console.error("Error updating clinic:", error);
-        return NextResponse.json(
-          { error: "Failed to update clinic: " + error.message },
-          { status: 500 }
-        );
-      }
+      if (error) return NextResponse.json({ error: "Failed to update clinic" }, { status: 500 });
       finalClinic = data;
     } else {
-      // CREATE NEW CLINIC using ADMIN client
       const { data, error } = await supabaseAdmin
         .from("clinics")
         .insert([{
-          name,
-          email,
-          phone,
-          address,
-          city,
+          name, email, phone, address, city,
           country: country || "الأردن",
           description,
           is_active: true
@@ -152,31 +115,15 @@ export async function PATCH(request: NextRequest) {
         .select()
         .single();
 
-      if (error) {
-        console.error("Error creating clinic:", error);
-        return NextResponse.json(
-          { error: "Failed to create clinic: " + error.message },
-          { status: 500 }
-        );
-      }
+      if (error) return NextResponse.json({ error: "Failed to create clinic" }, { status: 500 });
       finalClinic = data;
 
-      // LINK CLINIC TO USER using ADMIN client
-      const { error: linkError } = await supabaseAdmin
+      await supabaseAdmin
         .from("users")
         .update({ clinic_id: finalClinic.id, role: 'owner' })
         .eq("id", userId);
-
-      if (linkError) {
-        console.error("Error linking clinic to user:", linkError);
-        return NextResponse.json(
-          { error: "Failed to link clinic to user: " + linkError.message },
-          { status: 500 }
-        );
-      }
     }
 
-    // Check for subscription using ADMIN client
     const { data: subscription } = await supabaseAdmin
       .from('subscriptions')
       .select('*')
@@ -184,18 +131,11 @@ export async function PATCH(request: NextRequest) {
       .maybeSingle();
 
     if (!subscription) {
-      return NextResponse.json(
-        { success: true, data: finalClinic, requiresPayment: true },
-        { status: 402 }
-      );
+      return NextResponse.json({ success: true, data: finalClinic, requiresPayment: true }, { status: 402 });
     }
 
     return NextResponse.json({ success: true, data: finalClinic });
   } catch (error: any) {
-    console.error("Clinic PATCH Error:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to save clinic" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to save clinic" }, { status: 500 });
   }
 }
