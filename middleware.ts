@@ -15,6 +15,9 @@ const isPublicRoute = createRouteMatcher([
 
 export default clerkMiddleware(async (auth, request) => {
   const { userId, sessionClaims } = await auth();
+  
+  // Extract email from session claims
+  const userEmail = sessionClaims?.email as string;
 
   // 1. If public route, allow access
   if (isPublicRoute(request)) {
@@ -26,24 +29,20 @@ export default clerkMiddleware(async (auth, request) => {
     return (await auth()).redirectToSignIn();
   }
 
-  // 3. Hardcoded override for admin users - bypass approval check entirely
-  // This ensures the main admin can always access the dashboard regardless of metadata
-  if (userId === "user_3FOjbOk3hK1NlAfpJc6BYjrYutm" || sessionClaims?.email === "omaralblack@gmail.com") {
+  // 3. ABSOLUTE BYPASS FOR OWNER (Omar)
+  // We check by Email and UserID to ensure he NEVER gets locked out
+  const isOwner = 
+    userEmail === "omaralblack@gmail.com" || 
+    userId === "user_3FOjbOk3hK1NlAfpJc6BYjrYutm";
+
+  if (isOwner) {
+    console.log("Owner bypass triggered for:", userEmail);
     return NextResponse.next();
   }
 
-  // 4. Check for approval status in metadata
+  // 4. Check for approval status in metadata for other users
   const publicMetadata = sessionClaims?.metadata as any;
   const approvalStatus = publicMetadata?.approval_status;
-  const userEmail = sessionClaims?.email;
-
-  // Debug logs (visible in Vercel logs)
-  console.log("Middleware check:", { userId, approvalStatus, userEmail });
-
-  // BYPASS FOR OWNER: If email is omaralblack@gmail.com, allow everything
-  if (userEmail === "omaralblack@gmail.com") {
-    return NextResponse.next();
-  }
 
   // If status is not approved, redirect to waiting page
   if (approvalStatus !== "approved" && !request.nextUrl.pathname.startsWith("/waiting-approval")) {
